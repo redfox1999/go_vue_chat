@@ -1,4 +1,5 @@
 @baseUrl = http://localhost:8080/api/v1
+@wsUrl = ws://localhost:8081
 @contentType = application/json
 
 ### 获取所有用户（分页）
@@ -46,6 +47,13 @@ Content-Type: {{contentType}}
     "email": "test@example.com",
     "age": 25
 }
+
+### 获取 WebSocket 连接客户端数量（REST API）
+GET {{baseUrl}}/ws/clients
+Accept: {{contentType}}
+
+### WebSocket 连接（使用 wscat 测试）
+// 命令行测试: wscat -c ws://localhost:8081/ws
 
 ### 健康检查
 GET http://localhost:8080/health

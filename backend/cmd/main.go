@@ -13,6 +13,7 @@ import (
 	"backend/repository"
 	"backend/router"
 	"backend/service"
+	"backend/websocket"
 )
 
 func main() {
@@ -28,7 +29,11 @@ func main() {
 	userService := service.NewUserService(userRepo, config.Logger)
 	userHandler := handler.NewUserHandler(userService, config.Logger)
 
-	r := router.NewRouter(userHandler, config.Logger)
+	wsManager := websocket.NewManager(config.Logger)
+	go wsManager.Run()
+	wsHandler := handler.NewWebSocketHandler(wsManager, config.Logger)
+
+	r := router.NewRouter(userHandler, wsHandler, config.Logger)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -42,6 +47,7 @@ func main() {
 
 	go func() {
 		config.Logger.Info().Msgf("Server is running on http://localhost:%s", port)
+		config.Logger.Info().Msgf("WebSocket endpoint available at ws://localhost:%s/ws", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			config.Logger.Fatal().Err(err).Msg("Failed to start server")
 		}
@@ -64,5 +70,5 @@ func main() {
 		config.Logger.Error().Err(err).Msg("Failed to close database connection")
 	}
 
-	config.Logger.Info().Msg("Server exiting")
+	config.Logger.Info().Msg("Server shutdown completed")
 }
