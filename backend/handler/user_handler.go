@@ -5,36 +5,43 @@ import (
 	"net/http"
 	"strconv"
 
-	"backend/models"
+	"backend/dto"
 	"backend/service"
+
+	"github.com/rs/zerolog"
 )
 
 type UserHandler struct {
 	service service.UserService
+	logger  zerolog.Logger
 }
 
-func NewUserHandler(svc service.UserService) *UserHandler {
-	return &UserHandler{service: svc}
+func NewUserHandler(svc service.UserService, logger zerolog.Logger) *UserHandler {
+	return &UserHandler{service: svc, logger: logger}
 }
 
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
+		h.logger.Warn().Str("id", idStr).Msg("Invalid user ID parameter")
 		h.respondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return
 	}
 
+	h.logger.Debug().Int("id", id).Msg("Getting user by ID")
 	user, err := h.service.GetUserByID(r.Context(), id)
 	if err != nil {
-		if err == service.ErrUserNotFound {
+		switch err {
+		case service.ErrUserNotFound:
 			h.respondWithError(w, http.StatusNotFound, "User not found")
-		} else {
+		default:
 			h.respondWithError(w, http.StatusInternalServerError, "Failed to get user")
 		}
 		return
 	}
 
+	h.logger.Info().Int("id", id).Msg("User retrieved successfully")
 	h.respondWithSuccess(w, http.StatusOK, "Success", user)
 }
 
@@ -52,6 +59,7 @@ func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
+	h.logger.Debug().Int("page", page).Int("pageSize", pageSize).Msg("Getting users with pagination")
 	result, err := h.service.GetAllUsers(r.Context(), page, pageSize)
 	if err != nil {
 		h.respondWithError(w, http.StatusInternalServerError, "Failed to get users")
@@ -62,24 +70,28 @@ func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var req models.CreateUserRequest
+	var req dto.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn().Err(err).Msg("Invalid request body for create user")
 		h.respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
+	h.logger.Debug().Str("email", req.Email).Msg("Creating new user")
 	user, err := h.service.CreateUser(r.Context(), &req)
 	if err != nil {
-		if err == service.ErrEmailAlreadyExist {
+		switch err {
+		case service.ErrEmailAlreadyExist:
 			h.respondWithError(w, http.StatusConflict, "Email already exists")
-		} else if err == service.ErrInvalidInput {
+		case service.ErrInvalidInput:
 			h.respondWithError(w, http.StatusBadRequest, "Invalid input")
-		} else {
+		default:
 			h.respondWithError(w, http.StatusInternalServerError, "Failed to create user")
 		}
 		return
 	}
 
+	h.logger.Info().Int("id", user.ID).Str("email", user.Email).Msg("User created via handler")
 	h.respondWithSuccess(w, http.StatusCreated, "User created successfully", user)
 }
 
@@ -87,30 +99,35 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
+		h.logger.Warn().Str("id", idStr).Msg("Invalid user ID for update")
 		h.respondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return
 	}
 
-	var req models.UpdateUserRequest
+	var req dto.UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn().Err(err).Msg("Invalid request body for update user")
 		h.respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
+	h.logger.Debug().Int("id", id).Msg("Updating user")
 	user, err := h.service.UpdateUser(r.Context(), id, &req)
 	if err != nil {
-		if err == service.ErrUserNotFound {
+		switch err {
+		case service.ErrUserNotFound:
 			h.respondWithError(w, http.StatusNotFound, "User not found")
-		} else if err == service.ErrEmailAlreadyExist {
+		case service.ErrEmailAlreadyExist:
 			h.respondWithError(w, http.StatusConflict, "Email already exists")
-		} else if err == service.ErrInvalidInput {
+		case service.ErrInvalidInput:
 			h.respondWithError(w, http.StatusBadRequest, "Invalid input")
-		} else {
+		default:
 			h.respondWithError(w, http.StatusInternalServerError, "Failed to update user")
 		}
 		return
 	}
 
+	h.logger.Info().Int("id", id).Str("email", user.Email).Msg("User updated via handler")
 	h.respondWithSuccess(w, http.StatusOK, "User updated successfully", user)
 }
 
@@ -118,29 +135,33 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
+		h.logger.Warn().Str("id", idStr).Msg("Invalid user ID for delete")
 		h.respondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return
 	}
 
+	h.logger.Debug().Int("id", id).Msg("Deleting user")
 	err = h.service.DeleteUser(r.Context(), id)
 	if err != nil {
-		if err == service.ErrUserNotFound {
+		switch err {
+		case service.ErrUserNotFound:
 			h.respondWithError(w, http.StatusNotFound, "User not found")
-		} else if err == service.ErrInvalidInput {
+		case service.ErrInvalidInput:
 			h.respondWithError(w, http.StatusBadRequest, "Invalid input")
-		} else {
+		default:
 			h.respondWithError(w, http.StatusInternalServerError, "Failed to delete user")
 		}
 		return
 	}
 
+	h.logger.Info().Int("id", id).Msg("User deleted via handler")
 	h.respondWithSuccess(w, http.StatusNoContent, "User deleted successfully", nil)
 }
 
 func (h *UserHandler) respondWithSuccess(w http.ResponseWriter, statusCode int, message string, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	response := models.Response{
+	response := dto.Response{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -151,7 +172,7 @@ func (h *UserHandler) respondWithSuccess(w http.ResponseWriter, statusCode int, 
 func (h *UserHandler) respondWithError(w http.ResponseWriter, statusCode int, errorMessage string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	response := models.Response{
+	response := dto.Response{
 		Success: false,
 		Message: errorMessage,
 		Error:   errorMessage,

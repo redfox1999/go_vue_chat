@@ -2,11 +2,11 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"backend/models"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
 )
 
 type UserRepository interface {
@@ -19,18 +19,20 @@ type UserRepository interface {
 }
 
 type userRepository struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger zerolog.Logger
 }
 
-func NewUserRepository(db *sqlx.DB) UserRepository {
-	return &userRepository{db: db}
+func NewUserRepository(db *sqlx.DB, logger zerolog.Logger) UserRepository {
+	return &userRepository{db: db, logger: logger}
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id int) (*models.User, error) {
 	var user models.User
 	err := r.db.GetContext(ctx, &user, "SELECT * FROM users WHERE id = ?", id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		r.logger.Error().Err(err).Int("id", id).Msg("Failed to get user by ID")
+		return nil, err
 	}
 	return &user, nil
 }
@@ -40,13 +42,15 @@ func (r *userRepository) GetAll(ctx context.Context, page, pageSize int) ([]mode
 	var users []models.User
 	err := r.db.SelectContext(ctx, &users, "SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", pageSize, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get users: %w", err)
+		r.logger.Error().Err(err).Int("page", page).Int("pageSize", pageSize).Msg("Failed to get users")
+		return nil, 0, err
 	}
 
 	var total int64
 	err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM users")
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+		r.logger.Error().Err(err).Msg("Failed to count users")
+		return nil, 0, err
 	}
 
 	return users, total, nil
@@ -57,13 +61,16 @@ func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 	          VALUES (:name, :email, :age, :created_at, :updated_at)`
 	result, err := r.db.NamedExecContext(ctx, query, user)
 	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+		r.logger.Error().Err(err).Str("email", user.Email).Msg("Failed to create user")
+		return err
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		return fmt.Errorf("failed to get last insert id: %w", err)
+		r.logger.Error().Err(err).Msg("Failed to get last insert id")
+		return err
 	}
 	user.ID = int(id)
+	r.logger.Info().Int("id", user.ID).Str("email", user.Email).Msg("User created successfully")
 	return nil
 }
 
@@ -71,16 +78,20 @@ func (r *userRepository) Update(ctx context.Context, id int, user *models.User) 
 	query := `UPDATE users SET name = :name, email = :email, age = :age, updated_at = :updated_at WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, user)
 	if err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
+		r.logger.Error().Err(err).Int("id", id).Msg("Failed to update user")
+		return err
 	}
+	r.logger.Info().Int("id", id).Str("email", user.Email).Msg("User updated successfully")
 	return nil
 }
 
 func (r *userRepository) Delete(ctx context.Context, id int) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
 	if err != nil {
-		return fmt.Errorf("failed to delete user: %w", err)
+		r.logger.Error().Err(err).Int("id", id).Msg("Failed to delete user")
+		return err
 	}
+	r.logger.Info().Int("id", id).Msg("User deleted successfully")
 	return nil
 }
 
@@ -88,7 +99,8 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 	var exists bool
 	err := r.db.GetContext(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email)
 	if err != nil {
-		return false, fmt.Errorf("failed to check email existence: %w", err)
+		r.logger.Error().Err(err).Str("email", email).Msg("Failed to check email existence")
+		return false, err
 	}
 	return exists, nil
 }

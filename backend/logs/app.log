@@ -1,0 +1,48 @@
+{"level":"info","time":1778135823,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778135823,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778135823,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778135823,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","time":1778136165,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778136165,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778136165,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778136165,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","id":1,"email":"test@example.com","time":1778136172,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:73","message":"User created successfully"}
+{"level":"info","id":1,"email":"test@example.com","time":1778136172,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:123","message":"User created via service"}
+{"level":"info","id":1,"email":"test@example.com","time":1778136172,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:92","message":"User created via handler"}
+{"level":"info","time":1778136443,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778136443,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778136443,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778136443,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","method":"GET","path":"/health","query":"","status":200,"duration":0.017362,"remote_addr":"[::1]:57113","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","id":2,"email":"middleware@test.com","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:73","message":"User created successfully"}
+{"level":"info","id":2,"email":"middleware@test.com","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:123","message":"User created via service"}
+{"level":"info","id":2,"email":"middleware@test.com","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:92","message":"User created via handler"}
+{"level":"info","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":0.932958,"remote_addr":"[::1]:57114","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","method":"GET","path":"/api/v1/users","query":"","status":200,"duration":0.499059,"remote_addr":"[::1]:57115","time":1778136454,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","time":1778136891,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778136891,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778136891,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778136891,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","method":"GET","path":"/api/v1/users","query":"","status":200,"duration":1.418467,"remote_addr":"[::1]:59172","time":1778136896,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","id":3,"email":"copier@test.com","time":1778136896,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:73","message":"User created successfully"}
+{"level":"info","id":3,"email":"copier@test.com","time":1778136896,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:136","message":"User created via service"}
+{"level":"info","id":3,"email":"copier@test.com","time":1778136896,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:92","message":"User created via handler"}
+{"level":"info","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":1.298174,"remote_addr":"[::1]:59173","time":1778136896,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","time":1778137065,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778137065,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778137065,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778137065,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","method":"GET","path":"/api/v1/users","query":"","status":200,"duration":1.193334,"remote_addr":"[::1]:59989","time":1778137071,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","id":4,"email":"service@test.com","time":1778137071,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:73","message":"User created successfully"}
+{"level":"info","id":4,"email":"service@test.com","time":1778137071,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:140","message":"User created via service"}
+{"level":"info","id":4,"email":"service@test.com","time":1778137071,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:92","message":"User created via handler"}
+{"level":"info","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":0.803895,"remote_addr":"[::1]:59990","time":1778137071,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","time":1778137459,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778137459,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778137459,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778137459,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","method":"GET","path":"/api/v1/users","query":"","status":200,"duration":0.839094,"remote_addr":"[::1]:61857","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","id":5,"email":"dto@test.com","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:73","message":"User created successfully"}
+{"level":"info","id":5,"email":"dto@test.com","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:141","message":"User created via service"}
+{"level":"info","id":5,"email":"dto@test.com","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:94","message":"User created via handler"}
+{"level":"info","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":0.833434,"remote_addr":"[::1]:61858","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}

@@ -4,16 +4,18 @@ import (
 	"net/http"
 
 	"backend/handler"
+	"backend/middleware"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimid "github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
 )
 
-func NewRouter(userHandler *handler.UserHandler) *chi.Mux {
+func NewRouter(userHandler *handler.UserHandler, logger zerolog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestLogger(logger))
+	r.Use(chimid.Recoverer)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/users", func(r chi.Router) {

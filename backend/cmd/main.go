@@ -24,11 +24,11 @@ func main() {
 		config.Logger.Fatal().Err(err).Msg("Failed to initialize database")
 	}
 
-	userRepo := repository.NewUserRepository(config.DB)
-	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
+	userRepo := repository.NewUserRepository(config.DB, config.Logger)
+	userService := service.NewUserService(userRepo, config.Logger)
+	userHandler := handler.NewUserHandler(userService, config.Logger)
 
-	r := router.NewRouter(userHandler)
+	r := router.NewRouter(userHandler, config.Logger)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
