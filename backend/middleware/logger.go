@@ -27,11 +27,14 @@ func RequestLogger(logger zerolog.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			recorder := newResponseRecorder(w)
 
+			requestID := GetRequestID(r.Context())
+
 			next.ServeHTTP(recorder, r)
 
 			duration := time.Since(start)
 
 			logger.Info().
+				Str("request_id", requestID).
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Str("query", r.URL.RawQuery).

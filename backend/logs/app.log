@@ -46,3 +46,28 @@
 {"level":"info","id":5,"email":"dto@test.com","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:141","message":"User created via service"}
 {"level":"info","id":5,"email":"dto@test.com","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:94","message":"User created via handler"}
 {"level":"info","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":0.833434,"remote_addr":"[::1]:61858","time":1778137465,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:41","message":"Request processed"}
+{"level":"info","time":1778138032,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778138032,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778138032,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778138032,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","time":1778138035,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:54","message":"Shutting down server..."}
+{"level":"info","time":1778138035,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:67","message":"Server exiting"}
+{"level":"info","time":1778138600,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778138600,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778138600,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778138600,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","request_id":"18458587-501a-4c67-ade7-3db77acfd46c","id":6,"email":"reqid@test.com","time":1778138604,"caller":"/Users/zhaosong/proj/go_proj2/backend/repository/user_repository.go:80","message":"User created successfully"}
+{"level":"info","request_id":"18458587-501a-4c67-ade7-3db77acfd46c","id":6,"email":"reqid@test.com","time":1778138604,"caller":"/Users/zhaosong/proj/go_proj2/backend/service/user_service.go:150","message":"User created via service"}
+{"level":"info","request_id":"18458587-501a-4c67-ade7-3db77acfd46c","id":6,"email":"reqid@test.com","time":1778138604,"caller":"/Users/zhaosong/proj/go_proj2/backend/handler/user_handler.go:104","message":"User created via handler"}
+{"level":"info","request_id":"18458587-501a-4c67-ade7-3db77acfd46c","method":"POST","path":"/api/v1/users","query":"","status":201,"duration":1.991313,"remote_addr":"[::1]:50785","time":1778138604,"caller":"/Users/zhaosong/proj/go_proj2/backend/middleware/logger.go:44","message":"Request processed"}
+{"level":"info","time":1778138809,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778138809,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778138809,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778138809,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"fatal","error":"listen tcp :8080: bind: address already in use","time":1778138809,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:46","message":"Failed to start server"}
+{"level":"info","time":1778138824,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/log.go:40","message":"Logger initialized, outputting to console and file"}
+{"level":"info","time":1778138824,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:70","message":"WAL mode enabled successfully"}
+{"level":"info","time":1778138824,"caller":"/Users/zhaosong/proj/go_proj2/backend/config/database.go:50","message":"Database initialized successfully"}
+{"level":"info","time":1778138824,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:44","message":"Server is running on http://localhost:8080"}
+{"level":"info","time":1778138830,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:54","message":"Shutting down server..."}
+{"level":"info","time":1778138830,"caller":"/Users/zhaosong/proj/go_proj2/backend/cmd/main.go:67","message":"Server exiting"}

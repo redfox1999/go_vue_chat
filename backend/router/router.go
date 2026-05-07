@@ -14,6 +14,7 @@ import (
 func NewRouter(userHandler *handler.UserHandler, logger zerolog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(middleware.RequestID)
 	r.Use(middleware.RequestLogger(logger))
 	r.Use(chimid.Recoverer)
 
