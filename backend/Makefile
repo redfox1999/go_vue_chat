@@ -6,17 +6,18 @@ CMD_DIR := cmd
 all: build
 
 build:
+	mkdir -p bin/
 	go build -o bin/$(APP_NAME) ./$(CMD_DIR)
 
 run:
 	go run ./$(CMD_DIR)
 
 test:
-	go test ./...
+	go test -race -v ./...
 
 clean:
 	rm -rf bin/
-	rm -rf data/*.db
+
 
 fmt:
 	go fmt ./...
