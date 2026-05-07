@@ -2,3 +2,4 @@ backend/bin/
 *.db
 *.db-shm
 *.db-wal
+*log

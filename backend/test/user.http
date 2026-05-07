@@ -1,0 +1,52 @@
+@baseUrl = http://localhost:8080/api/v1
+@contentType = application/json
+
+### 获取所有用户（分页）
+GET {{baseUrl}}/users?page=1&page_size=10
+Accept: {{contentType}}
+
+### 获取单个用户
+GET {{baseUrl}}/users/get?id=1
+Accept: {{contentType}}
+
+### 创建用户
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+    "name": "Test User",
+    "email": "test@example.com",
+    "age": 30
+}
+
+### 更新用户
+PUT {{baseUrl}}/users?id=1
+Content-Type: {{contentType}}
+
+{
+    "name": "Updated User",
+    "email": "updated@example.com",
+    "age": 35
+}
+
+### 删除用户
+DELETE {{baseUrl}}/users?id=1
+Accept: {{contentType}}
+
+### 获取不存在的用户（测试错误处理）
+GET {{baseUrl}}/users/get?id=9999
+Accept: {{contentType}}
+
+### 创建重复邮箱用户（测试错误处理）
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+    "name": "Duplicate Email",
+    "email": "test@example.com",
+    "age": 25
+}
+
+### 健康检查
+GET http://localhost:8080/health
+Accept: {{contentType}}

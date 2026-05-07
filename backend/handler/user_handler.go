@@ -46,7 +46,7 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info().Int("id", id).Msg("User retrieved successfully")
-	h.respondWithSuccess(w, http.StatusOK, "Success", user)
+	h.respondWithData(w, http.StatusOK, user)
 }
 
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +73,7 @@ func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondWithSuccess(w, http.StatusOK, "Success", result)
+	h.respondWithData(w, http.StatusOK, result)
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +102,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info().Int("id", user.ID).Str("email", user.Email).Msg("User created via handler")
-	h.respondWithSuccess(w, http.StatusCreated, "User created successfully", user)
+	h.respondWithData(w, http.StatusCreated, user)
 }
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +141,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info().Int("id", id).Str("email", user.Email).Msg("User updated via handler")
-	h.respondWithSuccess(w, http.StatusOK, "User updated successfully", user)
+	h.respondWithData(w, http.StatusOK, user)
 }
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -183,6 +183,12 @@ func (h *UserHandler) respondWithSuccess(w http.ResponseWriter, statusCode int, 
 		Data:    data,
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *UserHandler) respondWithData(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(data)
 }
 
 func (h *UserHandler) respondWithError(w http.ResponseWriter, statusCode int, errorMessage string) {
