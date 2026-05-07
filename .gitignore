@@ -3,3 +3,4 @@ backend/bin/
 *.db-shm
 *.db-wal
 *log
+backend/.env

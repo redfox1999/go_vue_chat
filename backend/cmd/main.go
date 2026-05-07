@@ -19,6 +19,7 @@ import (
 func main() {
 	config.InitLogger()
 	config.LoadEnv()
+	config.InitSecurity()
 
 	err := config.InitDB()
 	if err != nil {

@@ -42,6 +42,16 @@ type PaginationResponse struct {
 	TotalPages int            `json:"total_pages"`
 }
 
+type LoginRequest struct {
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required,min=6"`
+}
+
+type LoginResponse struct {
+	User  UserResponse `json:"user"`
+	Token string       `json:"token"`
+}
+
 type Response struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message"`

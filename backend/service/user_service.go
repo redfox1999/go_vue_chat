@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"backend/config"
 	"backend/dto"
 	"backend/middleware"
 	"backend/models"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/jinzhu/copier"
 	"github.com/rs/zerolog"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -30,7 +30,7 @@ type UserService interface {
 	CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error)
 	UpdateUser(ctx context.Context, id int, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
 	DeleteUser(ctx context.Context, id int) error
-	Login(ctx context.Context, username, password string) (*dto.UserResponse, error)
+	Login(ctx context.Context, username, password string) (*dto.LoginResponse, error)
 }
 
 type userService struct {
@@ -129,7 +129,7 @@ func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest
 		return nil, ErrEmailAlreadyExist
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := config.HashPassword(req.Password)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to hash password")
 		return nil, err
@@ -208,12 +208,12 @@ func (s *userService) UpdateUser(ctx context.Context, id int, req *dto.UpdateUse
 		user.Email = *req.Email
 	}
 	if req.Password != nil {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		hashedPassword, err := config.HashPassword(*req.Password)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to hash password")
 			return nil, err
 		}
-		user.Password = string(hashedPassword)
+		user.Password = hashedPassword
 	}
 	if req.Birthday != nil {
 		user.Birthday = req.Birthday
@@ -268,7 +268,7 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 	return nil
 }
 
-func (s *userService) Login(ctx context.Context, username, password string) (*dto.UserResponse, error) {
+func (s *userService) Login(ctx context.Context, username, password string) (*dto.LoginResponse, error) {
 	logger := s.getLogger(ctx)
 
 	if username == "" || password == "" {
@@ -287,16 +287,25 @@ func (s *userService) Login(ctx context.Context, username, password string) (*dt
 		return nil, ErrUserDisabled
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
+	if !config.CheckPasswordHash(password, user.Password) {
 		logger.Warn().Str("username", username).Msg("Invalid password")
 		return nil, ErrInvalidPassword
 	}
 
-	response, err := s.toResponse(user)
+	userResponse, err := s.toResponse(user)
 	if err != nil {
 		return nil, err
 	}
+
+	token, err := config.GenerateJWT(user.ID, user.Username, 24*time.Hour)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to generate JWT token")
+		return nil, err
+	}
+
 	logger.Info().Int("id", user.ID).Str("username", user.Username).Msg("User logged in successfully")
-	return response, nil
+	return &dto.LoginResponse{
+		User:  *userResponse,
+		Token: token,
+	}, nil
 }

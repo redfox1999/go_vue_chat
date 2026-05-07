@@ -20,5 +20,10 @@ declare module 'vue' {
     ChatRoom: typeof import('./components/ChatRoom.vue')['default']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']
     Input: typeof import('./components/ui/Input.vue')['default']
+    Login: typeof import('./components/Login.vue')['default']
+    Register: typeof import('./components/Register.vue')['default']
+    RouterLink: typeof import('vue-router')['RouterLink']
+    RouterView: typeof import('vue-router')['RouterView']
+    Toast: typeof import('./components/ui/Toast.vue')['default']
   }
 }

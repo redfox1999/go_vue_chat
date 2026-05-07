@@ -31,6 +31,7 @@ func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHan
 			r.Get("/get", userHandler.GetUserByID)
 			r.Put("/", userHandler.UpdateUser)
 			r.Delete("/", userHandler.DeleteUser)
+			r.Post("/login", userHandler.Login)
 		})
 
 		r.Get("/ws/clients", wsHandler.GetClientCount)

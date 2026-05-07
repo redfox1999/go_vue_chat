@@ -144,6 +144,39 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	h.respondWithData(w, http.StatusOK, user)
 }
 
+func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
+	requestID := middleware.GetRequestID(r.Context())
+	logger := h.logger.With().Str("request_id", requestID).Logger()
+
+	var req dto.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn().Err(err).Msg("Invalid request body for login")
+		h.respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	logger.Debug().Str("username", req.Username).Msg("User attempting login")
+	response, err := h.service.Login(r.Context(), req.Username, req.Password)
+	if err != nil {
+		switch err {
+		case service.ErrUserNotFound:
+			h.respondWithError(w, http.StatusUnauthorized, "Invalid username or password")
+		case service.ErrInvalidPassword:
+			h.respondWithError(w, http.StatusUnauthorized, "Invalid username or password")
+		case service.ErrUserDisabled:
+			h.respondWithError(w, http.StatusForbidden, "User is disabled")
+		case service.ErrInvalidInput:
+			h.respondWithError(w, http.StatusBadRequest, "Invalid input")
+		default:
+			h.respondWithError(w, http.StatusInternalServerError, "Failed to login")
+		}
+		return
+	}
+
+	logger.Info().Int("user_id", response.User.ID).Str("username", response.User.Username).Msg("User logged in successfully")
+	h.respondWithData(w, http.StatusOK, response)
+}
+
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	requestID := middleware.GetRequestID(r.Context())
 	logger := h.logger.With().Str("request_id", requestID).Logger()
@@ -171,18 +204,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info().Int("id", id).Msg("User deleted via handler")
-	h.respondWithSuccess(w, http.StatusNoContent, "User deleted successfully", nil)
-}
-
-func (h *UserHandler) respondWithSuccess(w http.ResponseWriter, statusCode int, message string, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	response := dto.Response{
-		Success: true,
-		Message: message,
-		Data:    data,
-	}
-	json.NewEncoder(w).Encode(response)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *UserHandler) respondWithData(w http.ResponseWriter, statusCode int, data interface{}) {
@@ -194,10 +216,5 @@ func (h *UserHandler) respondWithData(w http.ResponseWriter, statusCode int, dat
 func (h *UserHandler) respondWithError(w http.ResponseWriter, statusCode int, errorMessage string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	response := dto.Response{
-		Success: false,
-		Message: errorMessage,
-		Error:   errorMessage,
-	}
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]string{"error": errorMessage})
 }
