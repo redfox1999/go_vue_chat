@@ -17,6 +17,7 @@ type UserRepository interface {
 	Update(ctx context.Context, id int, user *models.User) error
 	Delete(ctx context.Context, id int) error
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
 }
 
 type userRepository struct {
@@ -47,7 +48,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int) (*models.User, err
 func (r *userRepository) GetAll(ctx context.Context, page, pageSize int) ([]models.User, int64, error) {
 	offset := (page - 1) * pageSize
 	var users []models.User
-	err := r.db.SelectContext(ctx, &users, "SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", pageSize, offset)
+	err := r.db.SelectContext(ctx, &users, "SELECT * FROM users ORDER BY create_at DESC LIMIT ? OFFSET ?", pageSize, offset)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Int("page", page).Int("pageSize", pageSize).Msg("Failed to get users")
 		return nil, 0, err
@@ -64,8 +65,8 @@ func (r *userRepository) GetAll(ctx context.Context, page, pageSize int) ([]mode
 }
 
 func (r *userRepository) Create(ctx context.Context, user *models.User) error {
-	query := `INSERT INTO users (name, email, age, created_at, updated_at) 
-	          VALUES (:name, :email, :age, :created_at, :updated_at)`
+	query := `INSERT INTO users (username, nickname, email, password, birthday, sign, status, create_at, update_at)
+	          VALUES (:username, :nickname, :email, :password, :birthday, :sign, :status, :create_at, :update_at)`
 	result, err := r.db.NamedExecContext(ctx, query, user)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Str("email", user.Email).Msg("Failed to create user")
@@ -82,7 +83,8 @@ func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 }
 
 func (r *userRepository) Update(ctx context.Context, id int, user *models.User) error {
-	query := `UPDATE users SET name = :name, email = :email, age = :age, updated_at = :updated_at WHERE id = :id`
+	query := `UPDATE users SET username = :username, nickname = :nickname, email = :email,
+	          password = :password, birthday = :birthday, sign = :sign, status = :status, update_at = :update_at WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, user)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Int("id", id).Msg("Failed to update user")
@@ -110,4 +112,14 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 		return false, err
 	}
 	return exists, nil
+}
+
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	err := r.db.GetContext(ctx, &user, "SELECT * FROM users WHERE username = ?", username)
+	if err != nil {
+		r.getLogger(ctx).Error().Err(err).Str("username", username).Msg("Failed to get user by username")
+		return nil, err
+	}
+	return &user, nil
 }

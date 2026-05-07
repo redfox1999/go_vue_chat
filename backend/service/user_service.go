@@ -12,12 +12,16 @@ import (
 
 	"github.com/jinzhu/copier"
 	"github.com/rs/zerolog"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrEmailAlreadyExist = errors.New("email already exists")
+	ErrUsernameExist     = errors.New("username already exists")
 	ErrInvalidInput      = errors.New("invalid input")
+	ErrInvalidPassword   = errors.New("invalid password")
+	ErrUserDisabled      = errors.New("user is disabled")
 )
 
 type UserService interface {
@@ -26,6 +30,7 @@ type UserService interface {
 	CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error)
 	UpdateUser(ctx context.Context, id int, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
 	DeleteUser(ctx context.Context, id int) error
+	Login(ctx context.Context, username, password string) (*dto.UserResponse, error)
 }
 
 type userService struct {
@@ -110,7 +115,7 @@ func (s *userService) GetAllUsers(ctx context.Context, page, pageSize int) (*dto
 func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error) {
 	logger := s.getLogger(ctx)
 
-	if req.Name == "" || req.Email == "" {
+	if req.Username == "" || req.Email == "" || req.Password == "" {
 		logger.Warn().Str("email", req.Email).Msg("Invalid input for creating user")
 		return nil, ErrInvalidInput
 	}
@@ -124,13 +129,33 @@ func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest
 		return nil, ErrEmailAlreadyExist
 	}
 
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to hash password")
+		return nil, err
+	}
+
 	now := time.Now()
+	nickname := req.Nickname
+	if nickname == "" {
+		nickname = req.Username
+	}
+
+	status := req.Status
+	if status == 0 {
+		status = 1
+	}
+
 	user := &models.User{
-		Name:      req.Name,
-		Email:     req.Email,
-		Age:       req.Age,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Username: req.Username,
+		Nickname: nickname,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Birthday: req.Birthday,
+		Sign:     req.Sign,
+		Status:   status,
+		CreateAt: now,
+		UpdateAt: now,
 	}
 
 	err = s.repo.Create(ctx, user)
@@ -165,8 +190,11 @@ func (s *userService) UpdateUser(ctx context.Context, id int, req *dto.UpdateUse
 		return nil, ErrUserNotFound
 	}
 
-	if req.Name != nil {
-		user.Name = *req.Name
+	if req.Username != nil {
+		user.Username = *req.Username
+	}
+	if req.Nickname != nil {
+		user.Nickname = *req.Nickname
 	}
 	if req.Email != nil {
 		exists, err := s.repo.ExistsByEmail(ctx, *req.Email)
@@ -179,11 +207,25 @@ func (s *userService) UpdateUser(ctx context.Context, id int, req *dto.UpdateUse
 		}
 		user.Email = *req.Email
 	}
-	if req.Age != nil {
-		user.Age = *req.Age
+	if req.Password != nil {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to hash password")
+			return nil, err
+		}
+		user.Password = string(hashedPassword)
+	}
+	if req.Birthday != nil {
+		user.Birthday = req.Birthday
+	}
+	if req.Sign != nil {
+		user.Sign = *req.Sign
+	}
+	if req.Status != nil {
+		user.Status = *req.Status
 	}
 
-	user.UpdatedAt = time.Now()
+	user.UpdateAt = time.Now()
 
 	err = s.repo.Update(ctx, id, user)
 	if err != nil {
@@ -224,4 +266,37 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 
 	logger.Info().Int("id", id).Msg("User deleted via service")
 	return nil
+}
+
+func (s *userService) Login(ctx context.Context, username, password string) (*dto.UserResponse, error) {
+	logger := s.getLogger(ctx)
+
+	if username == "" || password == "" {
+		logger.Warn().Msg("Invalid login credentials")
+		return nil, ErrInvalidInput
+	}
+
+	user, err := s.repo.GetByUsername(ctx, username)
+	if err != nil {
+		logger.Warn().Str("username", username).Msg("User not found for login")
+		return nil, ErrUserNotFound
+	}
+
+	if user.Status == 0 {
+		logger.Warn().Str("username", username).Msg("User is disabled")
+		return nil, ErrUserDisabled
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		logger.Warn().Str("username", username).Msg("Invalid password")
+		return nil, ErrInvalidPassword
+	}
+
+	response, err := s.toResponse(user)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info().Int("id", user.ID).Str("username", user.Username).Msg("User logged in successfully")
+	return response, nil
 }

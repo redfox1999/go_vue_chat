@@ -75,11 +75,39 @@ func createTables() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
+		username TEXT NOT NULL UNIQUE,
+		nickname TEXT,
 		email TEXT NOT NULL UNIQUE,
-		age INTEGER,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		password TEXT NOT NULL,
+		birthday DATE,
+		sign TEXT,
+		status INTEGER DEFAULT 1,
+		create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS chat_rooms (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		logo TEXT,
+		"desc" TEXT,
+		owner_id INTEGER,
+		"group" TEXT,
+		status INTEGER DEFAULT 1,
+		create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (owner_id) REFERENCES users(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		room_id INTEGER,
+		sender INTEGER,
+		notify TEXT,
+		message TEXT NOT NULL,
+		send_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (room_id) REFERENCES chat_rooms(id),
+		FOREIGN KEY (sender) REFERENCES users(id)
 	);
 	`
 

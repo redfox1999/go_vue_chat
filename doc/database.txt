@@ -1,0 +1,40 @@
+users 用户表
+   id            主键
+   username      用户名
+   nickname      昵称， 显示用
+   email         邮箱
+   password      密码，bcrypt hash后保存
+   birthday      生日
+   sign          签名。个性显示
+   status        状态，是否可用，默认为1
+   create_at     创建时间
+   update_at     更新时间
+
+
+
+chat_rooms
+    id         主键
+    name       房间名
+    logo       图片
+    desc       说明
+    owner_id   负责人   // 关联到 users.id
+    group      分组
+    status     状态，是否可用，默认为1
+    create_at
+    update_at
+
+
+messages
+    id         主键
+    room_id    房间id
+    sender     发送人id
+    notify     提醒人列表
+    message    消息
+    send_time  发送时间
+
+
+
+
+
+
+
