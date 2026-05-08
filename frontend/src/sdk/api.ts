@@ -1,3 +1,4 @@
+import axios, { type AxiosInstance, type AxiosResponse, type AxiosError } from 'axios'
 import type {
   User,
   CreateUserRequest,
@@ -42,49 +43,94 @@ export function clearUser(): void {
   localStorage.removeItem(userStorageKey)
 }
 
+export function logout(): void {
+  clearToken()
+  clearUser()
+}
+
+export function isLoggedIn(): boolean {
+  return getToken() !== null
+}
+
+const axiosInstance: AxiosInstance = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000
+})
+
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = getToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+axiosInstance.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response
+  },
+  (error: AxiosError) => {
+    const data = error.response?.data as Record<string, unknown> | string | undefined
+    let errorMessage = '请求失败'
+
+    if (data && typeof data === 'object' && 'error' in data) {
+      errorMessage = String(data.error)
+    } else if (data && typeof data === 'object' && 'message' in data) {
+      errorMessage = String(data.message)
+    } else if (data && typeof data === 'object' && 'detail' in data) {
+      errorMessage = String(data.detail)
+    } else if (typeof data === 'string' && data.length > 0) {
+      errorMessage = data
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+
+    return Promise.reject(new Error(errorMessage))
+  }
+)
+
 async function request<T>(
   url: string,
-  options: RequestInit = {}
+  options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+    data?: unknown
+    headers?: Record<string, string>
+    params?: Record<string, unknown>
+  } = {}
 ): Promise<T> {
-  const token = getToken()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>)
-  }
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const response = await fetch(`${BASE_URL}${url}`, {
-    ...options,
-    headers
+  const { method = 'GET', data, headers, params } = options
+  
+  const response = await axiosInstance.request<T>({
+    url,
+    method,
+    data,
+    headers,
+    params
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-  }
-
-  if (response.status === 204) {
-    return null as T
-  }
-
-  return response.json()
+  
+  return response.data
 }
 
 export const userApi = {
   async register(data: CreateUserRequest): Promise<User> {
-    return request<User>('/users', {
+    return request<User>('/users/register', {
       method: 'POST',
-      body: JSON.stringify(data)
+      data
     })
   },
 
   async login(data: LoginRequest): Promise<LoginResponse> {
     const result = await request<LoginResponse>('/users/login', {
       method: 'POST',
-      body: JSON.stringify(data)
+      data
     })
     if (result.token) {
       setToken(result.token)
@@ -94,7 +140,9 @@ export const userApi = {
   },
 
   async getById(id: number): Promise<User> {
-    return request<User>(`/users/get?id=${id}`)
+    return request<User>('/users/get', {
+      params: { id }
+    })
   },
 
   async getCurrent(): Promise<User> {
@@ -102,20 +150,24 @@ export const userApi = {
   },
 
   async update(id: number, data: UpdateUserRequest): Promise<User> {
-    return request<User>(`/users/get?id=${id}`, {
+    return request<User>('/users', {
       method: 'PUT',
-      body: JSON.stringify(data)
+      params: { id },
+      data
     })
   },
 
   async delete(id: number): Promise<void> {
-    return request<void>(`/users/get?id=${id}`, {
-      method: 'DELETE'
+    return request<void>('/users', {
+      method: 'DELETE',
+      params: { id }
     })
   },
 
   async list(page: number = 1, pageSize: number = 10): Promise<PageResponse<User>> {
-    return request<PageResponse<User>>(`/users?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<User>>('/users', {
+      params: { page, page_size: pageSize }
+    })
   }
 }
 
@@ -123,7 +175,7 @@ export const chatRoomApi = {
   async create(data: CreateChatRoomRequest): Promise<ChatRoom> {
     return request<ChatRoom>('/chat-rooms', {
       method: 'POST',
-      body: JSON.stringify(data)
+      data
     })
   },
 
@@ -134,7 +186,7 @@ export const chatRoomApi = {
   async update(id: number, data: UpdateChatRoomRequest): Promise<ChatRoom> {
     return request<ChatRoom>(`/chat-rooms/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data)
+      data
     })
   },
 
@@ -145,15 +197,21 @@ export const chatRoomApi = {
   },
 
   async list(page: number = 1, pageSize: number = 10): Promise<PageResponse<ChatRoom>> {
-    return request<PageResponse<ChatRoom>>(`/chat-rooms?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<ChatRoom>>('/chat-rooms', {
+      params: { page, page_size: pageSize }
+    })
   },
 
   async listByGroup(group: string, page: number = 1, pageSize: number = 10): Promise<PageResponse<ChatRoom>> {
-    return request<PageResponse<ChatRoom>>(`/chat-rooms/group/${group}?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<ChatRoom>>(`/chat-rooms/group/${group}`, {
+      params: { page, page_size: pageSize }
+    })
   },
 
   async listByOwner(ownerId: number, page: number = 1, pageSize: number = 10): Promise<PageResponse<ChatRoom>> {
-    return request<PageResponse<ChatRoom>>(`/chat-rooms/owner/${ownerId}?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<ChatRoom>>(`/chat-rooms/owner/${ownerId}`, {
+      params: { page, page_size: pageSize }
+    })
   }
 }
 
@@ -161,7 +219,7 @@ export const messageApi = {
   async create(data: CreateMessageRequest): Promise<Message> {
     return request<Message>('/messages', {
       method: 'POST',
-      body: JSON.stringify(data)
+      data
     })
   },
 
@@ -176,10 +234,42 @@ export const messageApi = {
   },
 
   async listByRoom(roomId: number, page: number = 1, pageSize: number = 50): Promise<PageResponse<Message>> {
-    return request<PageResponse<Message>>(`/messages/room/${roomId}?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<Message>>(`/messages/room/${roomId}`, {
+      params: { page, page_size: pageSize }
+    })
   },
 
   async listBySender(senderId: number, page: number = 1, pageSize: number = 50): Promise<PageResponse<Message>> {
-    return request<PageResponse<Message>>(`/messages/sender/${senderId}?page=${page}&page_size=${pageSize}`)
+    return request<PageResponse<Message>>(`/messages/sender/${senderId}`, {
+      params: { page, page_size: pageSize }
+    })
+  }
+}
+
+export const uploadApi = {
+  async uploadFile(file: File): Promise<{ url: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await axiosInstance.post<{ url: string }>('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    return response.data
+  },
+
+  async uploadRoomLogo(file: File): Promise<{ url: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await axiosInstance.post<{ url: string }>('/upload/room-logo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    return response.data
   }
 }

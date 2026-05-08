@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { userApi } from '@/sdk'
 import type { User } from '@/sdk/types'
 import { useToast } from '@/composables/useToast'
+import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const username = ref('')
 const nickname = ref('')
 const email = ref('')
@@ -14,10 +13,11 @@ const confirmPassword = ref('')
 const loading = ref(false)
 
 const { error: showError, success: showSuccess } = useToast()
+const router = useRouter()
 
 const handleRegister = async () => {
-  if (!username.value || !email.value || !password.value) {
-    showError('请填写必填项')
+  if (!username.value || !password.value) {
+    showError('请填写用户名和密码')
     return
   }
 
@@ -37,14 +37,12 @@ const handleRegister = async () => {
     await userApi.register({
       username: username.value,
       nickname: nickname.value || username.value,
-      email: email.value,
+      email: email.value || '',
       password: password.value
     })
     
     showSuccess(`注册成功！请登录`)
-    setTimeout(() => {
-      router.push('/login')
-    }, 1500)
+    router.push('/login')
   } catch (e) {
     showError((e as Error).message || '注册失败，请重试')
   } finally {
@@ -91,11 +89,11 @@ const handleRegister = async () => {
         </div>
         
         <div>
-          <label class="block text-sm font-medium text-gray-200 mb-1.5">邮箱 <span class="text-red-400">*</span></label>
+          <label class="block text-sm font-medium text-gray-200 mb-1.5">邮箱</label>
           <Input 
             v-model="email"
             type="email"
-            placeholder="邮箱地址"
+            placeholder="邮箱地址（可选）"
             class="bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-indigo-400 focus:ring-indigo-400 h-10"
           />
         </div>
@@ -138,7 +136,7 @@ const handleRegister = async () => {
         <div class="pt-3 border-t border-white/10 text-center">
           <p class="text-gray-400 text-xs">
             已有账户？
-            <router-link to="/login" class="text-indigo-400 hover:text-indigo-300 transition-colors">立即登录</router-link>
+            <a href="/login" @click.prevent="router.push('/login')" class="text-indigo-400 hover:text-indigo-300 transition-colors">立即登录</a>
           </p>
         </div>
       </CardContent>

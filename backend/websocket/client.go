@@ -12,20 +12,26 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 4096
 )
 
 type Message struct {
-	Type    string          `json:"type"`
+	Action  string          `json:"action"`
 	Payload json.RawMessage `json:"payload"`
 }
 
-func NewClient(conn *websocket.Conn, manager *Manager) *Client {
+func NewClient(conn *websocket.Conn, manager *Manager, userId int, nickName string) *Client {
 	return &Client{
 		conn:     conn,
 		manager:  manager,
-		send:     make(chan []byte, 256),
+		send:     make(chan []byte, maxMessageSize),
 		clientID: uuid.New().String(),
+
+		// 业务逻辑
+		isAuthenticated: false,
+		roomId:          "",
+		userId:          userId,
+		nickName:        nickName,
 	}
 }
 
@@ -49,6 +55,26 @@ func (c *Client) readPump() {
 				c.manager.logger.Error().Err(err).Str("client_id", c.clientID).Msg("WebSocket read error")
 			}
 			break
+		}
+
+		//message 解析
+		var msg Message
+		err = json.Unmarshal(message, &msg)
+		if err != nil {
+			c.manager.logger.Error().Err(err).Str("client_id", c.clientID).Msg("WebSocket message parse error")
+			// continue
+		}
+		c.manager.logger.Info().Str("client_id", c.clientID).Msg("WebSocket message received: " + string(message))
+
+		// 处理 ping 消息，返回 pong 响应
+		if msg.Action == "ping" {
+			pongMsg := Message{
+				Action:  "pong",
+				Payload: json.RawMessage(`{}`),
+			}
+			pongData, _ := json.Marshal(pongMsg)
+			c.send <- pongData
+			continue
 		}
 
 		c.manager.Broadcast(message)

@@ -2,33 +2,74 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
+	"backend/config"
+	"backend/repository"
 	"backend/websocket"
 
 	"github.com/rs/zerolog"
 )
 
 type WebSocketHandler struct {
-	manager *websocket.Manager
-	logger  zerolog.Logger
+	manager  *websocket.Manager
+	logger   zerolog.Logger
+	userRepo repository.UserRepository
 }
 
-func NewWebSocketHandler(manager *websocket.Manager, logger zerolog.Logger) *WebSocketHandler {
-	return &WebSocketHandler{manager: manager, logger: logger}
+func NewWebSocketHandler(manager *websocket.Manager, logger zerolog.Logger, userRepo repository.UserRepository) *WebSocketHandler {
+	return &WebSocketHandler{manager: manager, logger: logger, userRepo: userRepo}
 }
 
 func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// 解析 JWT token（优先从 Authorization header，其次从 URL 参数）
+	var userId int
+	var tokenString string
+
+	// 尝试从 Authorization header 获取
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			tokenString = parts[1]
+		}
+	}
+
+	// 如果 header 中没有，尝试从 URL 参数获取
+	if tokenString == "" {
+		tokenString = r.URL.Query().Get("token")
+	}
+
+	// 解析 token
+	if tokenString != "" {
+		claims, err := config.ParseJWT(tokenString)
+		if err == nil && claims != nil {
+			userId = claims.UserID
+		}
+	}
+
+	// 从数据库获取用户昵称
+	nickName := ""
+	if userId > 0 {
+		user, err := h.userRepo.GetByID(r.Context(), userId)
+		if err == nil && user != nil {
+			nickName = user.Nickname
+		}
+	}
+
 	conn, err := websocket.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Failed to upgrade WebSocket connection")
 		return
 	}
+	h.logger.Info().Msg(fmt.Sprintf("WebSocket connection established for user %d", userId))
 
-	client := websocket.NewClient(conn, h.manager)
+	client := websocket.NewClient(conn, h.manager, userId, nickName)
 	h.manager.Register(client)
 
-	client.Start()
+	go client.Start()
 }
 
 func (h *WebSocketHandler) GetClientCount(w http.ResponseWriter, r *http.Request) {

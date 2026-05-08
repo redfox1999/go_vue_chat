@@ -50,6 +50,7 @@ export interface ChatRoom {
   status: number
   create_at: string
   update_at: string
+  client_num?: number
 }
 
 export interface CreateChatRoomRequest {
@@ -58,7 +59,6 @@ export interface CreateChatRoomRequest {
   desc?: string
   owner_id: number
   group?: string
-  status?: number
 }
 
 export interface UpdateChatRoomRequest {
@@ -87,8 +87,16 @@ export interface CreateMessageRequest {
 }
 
 export interface PageResponse<T> {
-  items: T[]
+  data: T[]
   total: number
   page: number
   page_size: number
+  total_pages: number
+}
+
+export interface Response<T> {
+  success: boolean
+  message: string
+  data?: T
+  error?: string
 }

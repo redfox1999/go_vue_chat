@@ -77,7 +77,7 @@ func createTables() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT NOT NULL UNIQUE,
 		nickname TEXT,
-		email TEXT NOT NULL UNIQUE,
+		email TEXT NOT NULL,
 		password TEXT NOT NULL,
 		birthday DATE,
 		sign TEXT,

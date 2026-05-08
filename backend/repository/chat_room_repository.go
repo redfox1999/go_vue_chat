@@ -68,14 +68,14 @@ func (r *chatRoomRepository) GetAll(ctx context.Context, page, pageSize int) ([]
 func (r *chatRoomRepository) GetByGroup(ctx context.Context, group string, page, pageSize int) ([]models.ChatRoom, int64, error) {
 	offset := (page - 1) * pageSize
 	var rooms []models.ChatRoom
-	err := r.db.SelectContext(ctx, &rooms, "SELECT * FROM chat_rooms WHERE group = ? AND status = 1 ORDER BY create_at DESC LIMIT ? OFFSET ?", group, pageSize, offset)
+	err := r.db.SelectContext(ctx, &rooms, "SELECT * FROM chat_rooms WHERE \"group\" = ? AND status = 1 ORDER BY create_at DESC LIMIT ? OFFSET ?", group, pageSize, offset)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Str("group", group).Msg("Failed to get chat rooms by group")
 		return nil, 0, err
 	}
 
 	var total int64
-	err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM chat_rooms WHERE group = ? AND status = 1", group)
+	err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM chat_rooms WHERE \"group\" = ? AND status = 1", group)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Str("group", group).Msg("Failed to count chat rooms by group")
 		return nil, 0, err
@@ -104,7 +104,7 @@ func (r *chatRoomRepository) GetByOwner(ctx context.Context, ownerID int, page, 
 }
 
 func (r *chatRoomRepository) Create(ctx context.Context, room *models.ChatRoom) error {
-	query := `INSERT INTO chat_rooms (name, logo, desc, owner_id, group, status, create_at, update_at)
+	query := `INSERT INTO chat_rooms (name, logo, "desc", owner_id, "group", status, create_at, update_at)
 	          VALUES (:name, :logo, :desc, :owner_id, :group, :status, :create_at, :update_at)`
 	result, err := r.db.NamedExecContext(ctx, query, room)
 	if err != nil {
@@ -122,8 +122,8 @@ func (r *chatRoomRepository) Create(ctx context.Context, room *models.ChatRoom) 
 }
 
 func (r *chatRoomRepository) Update(ctx context.Context, id int, room *models.ChatRoom) error {
-	query := `UPDATE chat_rooms SET name = :name, logo = :logo, desc = :desc, 
-	          owner_id = :owner_id, group = :group, status = :status, update_at = :update_at WHERE id = :id`
+	query := `UPDATE chat_rooms SET name = :name, logo = :logo, "desc" = :desc, 
+	          owner_id = :owner_id, "group" = :group, status = :status, update_at = :update_at WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, room)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Int("id", id).Msg("Failed to update chat room")

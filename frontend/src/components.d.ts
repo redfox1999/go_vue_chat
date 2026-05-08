@@ -11,19 +11,18 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    Alert: typeof import('./components/ui/Alert.vue')['default']
     Button: typeof import('./components/ui/Button.vue')['default']
     Card: typeof import('./components/ui/Card.vue')['default']
     CardContent: typeof import('./components/ui/CardContent.vue')['default']
     CardHeader: typeof import('./components/ui/CardHeader.vue')['default']
     CardTitle: typeof import('./components/ui/CardTitle.vue')['default']
-    ChatRoom: typeof import('./components/ChatRoom.vue')['default']
-    HelloWorld: typeof import('./components/HelloWorld.vue')['default']
+    Dialog: typeof import('./components/ui/Dialog.vue')['default']
     Input: typeof import('./components/ui/Input.vue')['default']
-    Login: typeof import('./components/Login.vue')['default']
-    Register: typeof import('./components/Register.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    Select: typeof import('./components/ui/Select.vue')['default']
+    SelectGroup: typeof import('./components/ui/SelectGroup.vue')['default']
+    SelectItem: typeof import('./components/ui/SelectItem.vue')['default']
     Toast: typeof import('./components/ui/Toast.vue')['default']
   }
 }

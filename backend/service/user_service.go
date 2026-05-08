@@ -115,18 +115,20 @@ func (s *userService) GetAllUsers(ctx context.Context, page, pageSize int) (*dto
 func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserResponse, error) {
 	logger := s.getLogger(ctx)
 
-	if req.Username == "" || req.Email == "" || req.Password == "" {
+	if req.Username == "" || req.Password == "" {
 		logger.Warn().Str("email", req.Email).Msg("Invalid input for creating user")
 		return nil, ErrInvalidInput
 	}
 
-	exists, err := s.repo.ExistsByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
-		logger.Warn().Str("email", req.Email).Msg("Email already exists")
-		return nil, ErrEmailAlreadyExist
+	if req.Email != "" {
+		exists, err := s.repo.ExistsByEmail(ctx, req.Email)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			logger.Warn().Str("email", req.Email).Msg("Email already exists")
+			return nil, ErrEmailAlreadyExist
+		}
 	}
 
 	hashedPassword, err := config.HashPassword(req.Password)

@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 import Components from 'unplugin-vue-components/vite'
 
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -18,6 +19,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src'),
     },
+    tsconfigPaths: true,
   },
   server: {
     proxy: {
@@ -25,6 +27,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
+      },
+      '/ws': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
       },
     },
   },

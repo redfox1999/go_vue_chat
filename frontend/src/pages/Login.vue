@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { userApi } from '@/sdk'
 import type { LoginResponse } from '@/sdk/types'
 import { useToast } from '@/composables/useToast'
+import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
 const { error: showError, success: showSuccess } = useToast()
+const router = useRouter()
 
 const handleLogin = async () => {
   if (!username.value || !password.value) {
@@ -104,7 +104,7 @@ const handleLogin = async () => {
         <div class="pt-3 border-t border-white/10 text-center">
           <p class="text-gray-400 text-xs">
             还没有账户？
-            <router-link to="/register" class="text-indigo-400 hover:text-indigo-300 transition-colors">立即注册</router-link>
+            <a href="/register" @click.prevent="router.push('/register')" class="text-indigo-400 hover:text-indigo-300 transition-colors">立即注册</a>
           </p>
         </div>
       </CardContent>

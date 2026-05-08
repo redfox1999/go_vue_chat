@@ -30,11 +30,15 @@ func main() {
 	userService := service.NewUserService(userRepo, config.Logger)
 	userHandler := handler.NewUserHandler(userService, config.Logger)
 
-	wsManager := websocket.NewManager(config.Logger)
-	go wsManager.Run()
-	wsHandler := handler.NewWebSocketHandler(wsManager, config.Logger)
+	chatRoomRepo := repository.NewChatRoomRepository(config.DB, config.Logger)
+	chatRoomService := service.NewChatRoomService(chatRoomRepo, config.Logger)
+	chatRoomHandler := handler.NewChatRoomHandler(chatRoomService, config.Logger)
 
-	r := router.NewRouter(userHandler, wsHandler, config.Logger)
+	wsManager := websocket.NewManager(config.Logger, userRepo, chatRoomRepo)
+	go wsManager.Run()
+	wsHandler := handler.NewWebSocketHandler(wsManager, config.Logger, userRepo)
+
+	r := router.NewRouter(userHandler, wsHandler, chatRoomHandler, config.Logger)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

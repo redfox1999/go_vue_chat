@@ -5,7 +5,7 @@ import "time"
 type CreateUserRequest struct {
 	Username string     `json:"username" validate:"required,min=3,max=50"`
 	Nickname string     `json:"nickname" validate:"max=100"`
-	Email    string     `json:"email" validate:"required,email"`
+	Email    string     `json:"email" validate:"omitempty,email"`
 	Password string     `json:"password" validate:"required,min=6,max=100"`
 	Birthday *time.Time `json:"birthday,omitempty"`
 	Sign     string     `json:"sign,omitempty" validate:"max=500"`

@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHandler, logger zerolog.Logger) *chi.Mux {
+func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHandler, chatRoomHandler *handler.ChatRoomHandler, logger zerolog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -26,15 +26,33 @@ func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHan
 		r.Use(middleware.RequestLogger(logger))
 
 		r.Route("/users", func(r chi.Router) {
-			r.Get("/", userHandler.GetAllUsers)
-			r.Post("/", userHandler.CreateUser)
-			r.Get("/get", userHandler.GetUserByID)
-			r.Put("/", userHandler.UpdateUser)
-			r.Delete("/", userHandler.DeleteUser)
 			r.Post("/login", userHandler.Login)
+			r.Post("/register", userHandler.CreateUser)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware(logger))
+				r.Get("/", userHandler.GetAllUsers)
+				r.Get("/get", userHandler.GetUserByID)
+				r.Put("/", userHandler.UpdateUser)
+				r.Delete("/", userHandler.DeleteUser)
+			})
+		})
+
+		r.Route("/chat-rooms", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware(logger))
+
+			r.Get("/", chatRoomHandler.GetAllChatRooms)
+			r.Post("/", chatRoomHandler.CreateChatRoom)
+			r.Get("/{id}", chatRoomHandler.GetChatRoomByID)
+			r.Put("/{id}", chatRoomHandler.UpdateChatRoom)
+			r.Delete("/{id}", chatRoomHandler.DeleteChatRoom)
+			r.Get("/group/{group}", chatRoomHandler.GetChatRoomsByGroup)
+			r.Get("/owner/{owner_id}", chatRoomHandler.GetChatRoomsByOwner)
 		})
 
 		r.Get("/ws/clients", wsHandler.GetClientCount)
+
+		r.Post("/upload/room-logo", handler.UploadRoomLogo)
 	})
 
 	return r
