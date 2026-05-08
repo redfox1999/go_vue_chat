@@ -49,26 +49,30 @@
     min-height: 100vh;
   }
 
-  ::-webkit-scrollbar {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+  }
+
+  body::-webkit-scrollbar,
+  div::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
-  ::-webkit-scrollbar-track {
+  body::-webkit-scrollbar-track,
+  div::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  ::-webkit-scrollbar-thumb {
+  body::-webkit-scrollbar-thumb,
+  div::-webkit-scrollbar-thumb {
     background: #374151;
     border-radius: 3px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  body::-webkit-scrollbar-thumb:hover,
+  div::-webkit-scrollbar-thumb:hover {
     background: #4b5563;
-  }
-
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #374151 transparent;
   }
 }
