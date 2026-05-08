@@ -48,4 +48,27 @@
     width: 100%;
     min-height: 100vh;
   }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+  }
 }

@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -99,22 +100,38 @@ func (m *Manager) Run() {
 
 		case client := <-m.unregister:
 			m.mu.Lock()
-			var totalClients int
+			var roomID string
+			var userID int
+			var nickName string
 			if _, ok := m.clients[client.clientID]; ok {
 				close(client.send)
 				delete(m.clients, client.clientID)
 				if client.roomId != "" && m.rooms[client.roomId] != nil {
+					roomID = client.roomId
+					userID = client.userId
+					nickName = client.nickName
 					delete(m.rooms[client.roomId], client.clientID)
 					if len(m.rooms[client.roomId]) == 0 {
 						delete(m.rooms, client.roomId)
 					}
 				}
 			}
-			totalClients = len(m.clients)
+			totalClients := len(m.clients)
 			m.mu.Unlock()
+
+			// 广播 user_leave 给房间其他人
+			if roomID != "" {
+				payload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, roomID, userID, nickName)
+				msg, _ := json.Marshal(map[string]any{
+					"action":  "user_leave",
+					"payload": json.RawMessage(payload),
+				})
+				m.SendToRoom(roomID, msg)
+			}
+
 			m.logger.Info().
 				Str("client_id", client.clientID).
-				Str("room_id", client.roomId).
+				Str("room_id", roomID).
 				Int("total_clients", totalClients).
 				Msg("Client disconnected")
 
@@ -214,6 +231,52 @@ func (m *Manager) GetUserNickname(userId int) string {
 	return user.Nickname
 }
 
+func (m *Manager) SendToRoom(roomID string, message []byte) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	room, ok := m.rooms[roomID]
+	if !ok {
+		return
+	}
+
+	for _, client := range room {
+		select {
+		case client.send <- message:
+		default:
+		}
+	}
+}
+
+type UserInfo struct {
+	UserID   int    `json:"user_id"`
+	NickName string `json:"nickname"`
+}
+
+func (m *Manager) GetRoomUsers(roomID string) []UserInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	room, ok := m.rooms[roomID]
+	if !ok {
+		return nil
+	}
+
+	users := make([]UserInfo, 0, len(room))
+	for _, client := range room {
+		nickName := client.nickName
+		if nickName == "" {
+			nickName = m.GetUserNickname(client.userId)
+		}
+		users = append(users, UserInfo{
+			UserID:   client.userId,
+			NickName: nickName,
+		})
+	}
+
+	return users
+}
+
 func (m *Manager) loadRoomsFromDB() {
 	if m.chatRoomRepo == nil {
 		m.logger.Warn().Msg("ChatRoomRepository not set, skipping room loading")
@@ -272,4 +335,64 @@ func (m *Manager) refreshRoomTokens() {
 
 func (m *Manager) generateToken() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+func (m *Manager) JoinRoom(clientID string, roomID string, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	client, ok := m.clients[clientID]
+	if !ok {
+		return fmt.Errorf("client not found")
+	}
+
+	// 校验 token
+	rt, ok := m.roomsToken[roomID]
+	if !ok {
+		return fmt.Errorf("room not found")
+	}
+	if token != rt.NewToken && token != rt.OldToken {
+		return fmt.Errorf("invalid token")
+	}
+
+	// 从旧房间移除
+	if client.roomId != "" && m.rooms[client.roomId] != nil {
+		delete(m.rooms[client.roomId], client.clientID)
+		if len(m.rooms[client.roomId]) == 0 {
+			delete(m.rooms, client.roomId)
+		}
+	}
+
+	// 加入新房间
+	if m.rooms[roomID] == nil {
+		m.rooms[roomID] = make(map[string]*Client)
+	}
+	m.rooms[roomID][client.clientID] = client
+	client.roomId = roomID
+
+	return nil
+}
+
+func (m *Manager) LeaveRoom(clientID string, roomID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	client, ok := m.clients[clientID]
+	if !ok {
+		return fmt.Errorf("client not found")
+	}
+
+	if client.roomId != roomID {
+		return fmt.Errorf("not in this room")
+	}
+
+	if m.rooms[roomID] != nil {
+		delete(m.rooms[roomID], client.clientID)
+		if len(m.rooms[roomID]) == 0 {
+			delete(m.rooms, roomID)
+		}
+	}
+
+	client.roomId = ""
+	return nil
 }

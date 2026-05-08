@@ -100,3 +100,8 @@ export interface Response<T> {
   data?: T
   error?: string
 }
+
+export interface RoomUser {
+  user_id: number
+  nickname: string
+}

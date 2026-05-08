@@ -10,6 +10,7 @@ import (
 	"backend/repository"
 	"backend/websocket"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 )
 
@@ -79,5 +80,49 @@ func (h *WebSocketHandler) GetClientCount(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]int{
 		"connected_clients": count,
+	})
+}
+
+func (h *WebSocketHandler) GetRoomToken(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "id")
+	if roomID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "room id is required"})
+		return
+	}
+
+	token, ok := h.manager.GetRoomToken(roomID)
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "room not found"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"room_id": roomID,
+		"token":   token.NewToken,
+	})
+}
+
+func (h *WebSocketHandler) GetRoomUsers(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "id")
+	if roomID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "room id is required"})
+		return
+	}
+
+	users := h.manager.GetRoomUsers(roomID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"room_id": roomID,
+		"users":   users,
 	})
 }

@@ -48,6 +48,8 @@ func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHan
 			r.Delete("/{id}", chatRoomHandler.DeleteChatRoom)
 			r.Get("/group/{group}", chatRoomHandler.GetChatRoomsByGroup)
 			r.Get("/owner/{owner_id}", chatRoomHandler.GetChatRoomsByOwner)
+			r.Get("/{id}/token", wsHandler.GetRoomToken)
+			r.Get("/{id}/users", wsHandler.GetRoomUsers)
 		})
 
 		r.Get("/ws/clients", wsHandler.GetClientCount)

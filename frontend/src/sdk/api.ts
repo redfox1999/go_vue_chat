@@ -10,7 +10,8 @@ import type {
   UpdateChatRoomRequest,
   Message,
   CreateMessageRequest,
-  PageResponse
+  PageResponse,
+  RoomUser
 } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
@@ -212,6 +213,14 @@ export const chatRoomApi = {
     return request<PageResponse<ChatRoom>>(`/chat-rooms/owner/${ownerId}`, {
       params: { page, page_size: pageSize }
     })
+  },
+
+  async getUsers(roomId: number): Promise<{ room_id: string; users: RoomUser[] }> {
+    return request<{ room_id: string; users: RoomUser[] }>(`/chat-rooms/${roomId}/users`)
+  },
+
+  async getToken(roomId: number): Promise<{ room_id: string; token: string }> {
+    return request<{ room_id: string; token: string }>(`/chat-rooms/${roomId}/token`)
   }
 }
 

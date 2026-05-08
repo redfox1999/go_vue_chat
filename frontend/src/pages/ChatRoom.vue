@@ -31,6 +31,7 @@ interface OnlineUser {
   name: string
   avatarUrl: string
   status: 'online' | 'away' | 'busy'
+  isBot: boolean
 }
 
 const currentChannel = ref('')
@@ -115,14 +116,16 @@ const myUser = computed(() => {
   }
 })
 
-const onlineUsers = ref<OnlineUser[]>([
-  { id: 1, name: '张三', avatarUrl: `${AVATAR_BASE_URL}zhangsan`, status: 'online' },
-  { id: 2, name: '李四', avatarUrl: `${AVATAR_BASE_URL}lisi`, status: 'online' },
-  { id: 3, name: '王五', avatarUrl: `${AVATAR_BASE_URL}wangwu`, status: 'away' },
-  { id: 4, name: '赵六', avatarUrl: `${AVATAR_BASE_URL}zhaoliu`, status: 'online' },
-  { id: 5, name: '钱七', avatarUrl: `${AVATAR_BASE_URL}qianqi`, status: 'busy' },
-  { id: 6, name: '孙八', avatarUrl: `${AVATAR_BASE_URL}sunba`, status: 'online' },
-])
+const ROBOT_POOL: OnlineUser[] = [
+  { id: -1, name: '张三', avatarUrl: `${AVATAR_BASE_URL}zhangsan`, status: 'online', isBot: true },
+  { id: -2, name: '李四', avatarUrl: `${AVATAR_BASE_URL}lisi`, status: 'online', isBot: true },
+  { id: -3, name: '王五', avatarUrl: `${AVATAR_BASE_URL}wangwu`, status: 'away', isBot: true },
+  { id: -4, name: '赵六', avatarUrl: `${AVATAR_BASE_URL}zhaoliu`, status: 'online', isBot: true },
+  { id: -5, name: '钱七', avatarUrl: `${AVATAR_BASE_URL}qianqi`, status: 'busy', isBot: true },
+  { id: -6, name: '孙八', avatarUrl: `${AVATAR_BASE_URL}sunba`, status: 'online', isBot: true },
+]
+
+const onlineUsers = ref<OnlineUser[]>([])
 
 const mockMessages: Message[] = [
   { id: 1, user: '张三', avatarUrl: `${AVATAR_BASE_URL}zhangsan`, content: '大家好！欢迎来到聊天室', timestamp: '10:00' },
@@ -134,42 +137,19 @@ const mockMessages: Message[] = [
 
 const sendMessage = () => {
   if (!inputMessage.value.trim()) return
-  
-  const newMessage: Message = {
-    id: Date.now(),
-    user: myUser.value.name,
-    avatarUrl: myUser.value.avatarUrl,
-    content: inputMessage.value,
-    timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-  }
-  
-  messages.value.push(newMessage)
+
+  const cur = channels.value.find(c => c.name === currentChannel.value)
+  if (!cur) return
+
+  sendWs({
+    action: 'chat',
+    payload: {
+      room_id: String(cur.id),
+      content: inputMessage.value,
+    },
+  })
+
   inputMessage.value = ''
-  
-  showSuccess('消息发送成功！')
-  
-  nextTick(() => scrollToBottom())
-  
-  const replies = [
-    '收到！',
-    '好的',
-    '👍',
-    '哈哈',
-    '有意思',
-  ]
-  
-  setTimeout(() => {
-    const randomUser = onlineUsers.value[Math.floor(Math.random() * onlineUsers.value.length)]
-    const replyMessage: Message = {
-      id: Date.now() + 1,
-      user: randomUser.name,
-      avatarUrl: randomUser.avatarUrl,
-      content: replies[Math.floor(Math.random() * replies.length)],
-      timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-    }
-    messages.value.push(replyMessage)
-    nextTick(() => scrollToBottom())
-  }, 800 + Math.random() * 1200)
 }
 
 const scrollToBottom = () => {
@@ -178,9 +158,53 @@ const scrollToBottom = () => {
   }
 }
 
-const selectChannel = (channel: ChatRoom) => {
+const selectChannel = async (channel: ChatRoom) => {
+  // 离开当前房间
+  if (currentChannel.value) {
+    const prev = channels.value.find(c => c.name === currentChannel.value)
+    if (prev) {
+      sendWs({ action: 'leave', payload: { room_id: String(prev.id) } })
+    }
+  }
+
   currentChannel.value = channel.name
   messages.value = []
+
+  // 随机选 3-5 个机器人
+  const pickBots = () => {
+    const n = 3 + Math.floor(Math.random() * 3)
+    const shuffled = [...ROBOT_POOL].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, n)
+  }
+
+  // 获取 token 并发起 join
+  try {
+    const tokenRes = await chatRoomApi.getToken(channel.id)
+    sendWs({
+      action: 'join',
+      payload: { room_id: String(channel.id), token: tokenRes.token },
+    })
+  } catch {
+    // token 获取失败不影响用户列表
+  }
+
+  try {
+    const result = await chatRoomApi.getUsers(channel.id)
+    const realUsers: OnlineUser[] = result.users
+      .filter(u => u.user_id !== myUser.value.id)
+      .map(u => ({
+        id: u.user_id,
+        name: u.nickname,
+        avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(u.nickname)}`,
+        status: 'online' as const,
+        isBot: false,
+      }))
+
+    onlineUsers.value = [...realUsers, ...pickBots()]
+  } catch {
+    onlineUsers.value = pickBots()
+  }
+
   setTimeout(() => {
     messages.value = [...mockMessages]
     nextTick(() => scrollToBottom())
@@ -320,28 +344,54 @@ const loadChatRooms = async () => {
   }
 }
 
-const handleWsMessage = (event: MessageEvent) => {
-  console.log('WebSocket message received:', event.data)
-  try {
-    const data = JSON.parse(event.data)
-    if (data.action === 'message') {
-      const payload = data.payload as { user: string; content: string; timestamp?: string }
-      const newMessage: Message = {
-        id: Date.now(),
-        user: payload.user,
-        avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(payload.user)}`,
-        content: payload.content,
-        timestamp: payload.timestamp || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      }
-      messages.value.push(newMessage)
-      nextTick(() => scrollToBottom())
-    } else if (data.action === 'ping') {
-      console.log('Received server ping')
-    } else if (data.action === 'pong') {
-      console.log('Received pong response')
+const processWsMsg = (data: { action: string; payload: any }) => {
+  if (data.action === 'chat') {
+    const payload = data.payload as { room_id: string; user_id: number; nickname: string; content: string }
+    const cur = channels.value.find(c => c.name === currentChannel.value)
+    if (!cur || String(cur.id) !== payload.room_id) return
+    const newMessage: Message = {
+      id: Date.now(),
+      user: payload.nickname,
+      avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(payload.nickname)}`,
+      content: payload.content,
+      timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     }
-  } catch (error) {
-    console.error('Failed to parse WebSocket message:', error)
+    messages.value.push(newMessage)
+    nextTick(() => scrollToBottom())
+  } else if (data.action === 'user_join') {
+    const payload = data.payload as { room_id: string; user_id: number; nickname: string }
+    const cur = channels.value.find(c => c.name === currentChannel.value)
+    if (!cur || String(cur.id) !== payload.room_id) return
+    if (payload.user_id === myUser.value.id) return
+    if (onlineUsers.value.some(u => u.id === payload.user_id && !u.isBot)) return
+    onlineUsers.value.push({
+      id: payload.user_id,
+      name: payload.nickname,
+      avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(payload.nickname)}`,
+      status: 'online',
+      isBot: false,
+    })
+  } else if (data.action === 'user_leave') {
+    const payload = data.payload as { room_id: string; user_id: number; nickname: string }
+    const cur = channels.value.find(c => c.name === currentChannel.value)
+    if (!cur || String(cur.id) !== payload.room_id) return
+    onlineUsers.value = onlineUsers.value.filter(u => u.id !== payload.user_id || u.isBot)
+  } else if (data.action === 'ping') {
+    console.log('Received server ping')
+  } else if (data.action === 'pong') {
+    console.log('Received pong response')
+  }
+}
+
+const handleWsMessage = (event: MessageEvent) => {
+  const raw = event.data as string
+  const lines = raw.split('\n').filter(l => l.trim())
+  for (const line of lines) {
+    try {
+      processWsMsg(JSON.parse(line))
+    } catch (e) {
+      console.error('Failed to parse WebSocket message:', e)
+    }
   }
 }
 
@@ -448,7 +498,10 @@ onMounted(() => {
                   ]"
                 ></div>
               </div>
-              <span class="text-sm">{{ user.name }}</span>
+              <span class="text-sm">
+                {{ user.name }}
+                <span v-if="user.isBot" class="text-[10px] text-muted-foreground ml-1 px-1 rounded bg-muted-foreground/10">bot</span>
+              </span>
             </div>
           </div>
         </CardContent>
@@ -533,13 +586,13 @@ onMounted(() => {
             </div>
             <div 
               :class="[
-                'px-4 py-2 rounded-2xl',
+                'px-4 py-2 rounded-2xl overflow-hidden',
                 msg.user === myUser.name 
                   ? 'bg-indigo-500 text-white rounded-br-md' 
                   : 'bg-muted text-foreground rounded-bl-md'
               ]"
             >
-              <p class="text-sm break-words">{{ msg.content }}</p>
+              <p class="text-sm break-all overflow-hidden">{{ msg.content }}</p>
             </div>
           </div>
         </div>
