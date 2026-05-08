@@ -213,6 +213,29 @@ const handleLogoClick = () => {
   }
 }
 
+// ------ 图片加载重试 ------
+const logoRetryCount = ref(0)
+const MAX_LOGO_RETRY = 5
+const RETRY_INTERVAL = 300
+
+const handleLogoError = () => {
+  if (logoRetryCount.value >= MAX_LOGO_RETRY) {
+    showError('Logo 加载失败，请重新上传')
+    logoRetryCount.value = 0
+    return
+  }
+  logoRetryCount.value++
+  const baseUrl = newRoomLogo.value.split('?')[0]
+  const img = new Image()
+  img.onload = () => {
+    newRoomLogo.value = baseUrl + `?v=${Date.now()}`
+  }
+  img.onerror = () => {
+    setTimeout(handleLogoError, RETRY_INTERVAL)
+  }
+  img.src = baseUrl + `?v=${Date.now()}`
+}
+
 const handleLogoUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -229,6 +252,7 @@ const handleLogoUpload = async (event: Event) => {
   
   try {
     const result = await uploadApi.uploadRoomLogo(file)
+    logoRetryCount.value = 0
     newRoomLogo.value = result.url
     showSuccess('Logo 上传成功')
   } catch (e) {
@@ -609,6 +633,7 @@ onMounted(() => {
                 :src="newRoomLogo"
                 alt="Logo"
                 class="w-full h-full object-cover"
+                @error="handleLogoError"
               />
               
               <!-- 默认上传提示 -->
