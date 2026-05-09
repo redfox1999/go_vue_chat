@@ -1,0 +1,45 @@
+{
+  "apiBaseUrl": "http://localhost:8080/api/v1",
+  "wsBaseUrl": "ws://localhost:8080/ws",
+  "credentials": {
+    "username": "aibot",
+    "password": "123456"
+  },
+  "behavior": {
+    "randomMessages": [
+      "大家好！",
+      "今天天气不错",
+      "有人在吗？",
+      "哈哈哈",
+      "这个聊天室真热闹",
+      "我来了",
+      "不错不错",
+      "继续聊天吧",
+      "很有意思",
+      "赞同"
+    ],
+    "replyMessages": [
+      "你说得对",
+      "确实如此",
+      "哈哈",
+      "有道理",
+      "我也这么想",
+      "嗯嗯",
+      "好的",
+      "收到",
+      "明白了",
+      "同意"
+    ],
+    "minStayTime": 3,
+    "maxStayTime": 8,
+    "minRandomInterval": 5,
+    "maxRandomInterval": 10,
+    "replyDelay": {
+      "min": 1000,
+      "max": 3000
+    }
+  },
+  "logging": {
+    "level": "info"
+  }
+}

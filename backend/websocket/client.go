@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"backend/dto"
 	"backend/models"
 	"encoding/json"
 	"fmt"
@@ -18,28 +19,9 @@ const (
 	maxMessageSize = 4096
 )
 
-type Message struct {
-	Action  string          `json:"action"`
-	Payload json.RawMessage `json:"payload"`
-}
-
-type JoinPayload struct {
-	RoomID string `json:"room_id"`
-	Token  string `json:"token"`
-}
-
-type LeavePayload struct {
-	RoomID string `json:"room_id"`
-}
-
-type ChatPayload struct {
-	RoomID  string `json:"room_id"`
-	Content string `json:"content"`
-}
-
 func errMsg(action, msg string) []byte {
 	p, _ := json.Marshal(map[string]string{"error": msg})
-	b, _ := json.Marshal(Message{Action: action, Payload: p})
+	b, _ := json.Marshal(dto.Message{Action: action, Payload: p})
 	return b
 }
 
@@ -81,7 +63,7 @@ func (c *Client) readPump() {
 		}
 
 		//message 解析
-		var msg Message
+		var msg dto.Message
 		err = json.Unmarshal(message, &msg)
 		if err != nil {
 			c.manager.logger.Error().Err(err).Str("client_id", c.clientID).Msg("WebSocket message parse error")
@@ -91,7 +73,7 @@ func (c *Client) readPump() {
 
 		switch msg.Action {
 		case "ping":
-			pongMsg := Message{
+			pongMsg := dto.Message{
 				Action:  "pong",
 				Payload: json.RawMessage(`{}`),
 			}
@@ -99,9 +81,9 @@ func (c *Client) readPump() {
 			c.send <- pongData
 
 		case "join":
-			var payload JoinPayload
+			var payload dto.JoinPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-				errMsg, _ := json.Marshal(Message{
+				errMsg, _ := json.Marshal(dto.Message{
 					Action:  "join_error",
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
@@ -110,7 +92,7 @@ func (c *Client) readPump() {
 			}
 			if err := c.manager.JoinRoom(c.clientID, payload.RoomID, payload.Token); err != nil {
 				errPayload, _ := json.Marshal(map[string]string{"error": err.Error()})
-				errMsg, _ := json.Marshal(Message{
+				errMsg, _ := json.Marshal(dto.Message{
 					Action:  "join_error",
 					Payload: errPayload,
 				})
@@ -118,23 +100,23 @@ func (c *Client) readPump() {
 				break
 			}
 			joinPayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
-			joinBroadcast, _ := json.Marshal(Message{
+			joinBroadcast, _ := json.Marshal(dto.Message{
 				Action:  "user_join",
 				Payload: json.RawMessage(joinPayload),
 			})
-			c.manager.SendToRoom(payload.RoomID, joinBroadcast)
+			c.manager.SendToRoomExcept(payload.RoomID, c.clientID, joinBroadcast)
 
 			okPayload, _ := json.Marshal(map[string]string{"room_id": payload.RoomID})
-			okMsg, _ := json.Marshal(Message{
+			okMsg, _ := json.Marshal(dto.Message{
 				Action:  "join_ok",
 				Payload: okPayload,
 			})
 			c.send <- okMsg
 
 		case "leave":
-			var payload LeavePayload
+			var payload dto.LeavePayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-				errMsg, _ := json.Marshal(Message{
+				errMsg, _ := json.Marshal(dto.Message{
 					Action:  "leave_error",
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
@@ -142,7 +124,7 @@ func (c *Client) readPump() {
 				break
 			}
 			leavePayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
-			leaveBroadcast, _ := json.Marshal(Message{
+			leaveBroadcast, _ := json.Marshal(dto.Message{
 				Action:  "user_leave",
 				Payload: json.RawMessage(leavePayload),
 			})
@@ -150,21 +132,21 @@ func (c *Client) readPump() {
 
 			if err := c.manager.LeaveRoom(c.clientID, payload.RoomID); err != nil {
 				errPayload, _ := json.Marshal(map[string]string{"error": err.Error()})
-				errMsg, _ := json.Marshal(Message{
+				errMsg, _ := json.Marshal(dto.Message{
 					Action:  "leave_error",
 					Payload: errPayload,
 				})
 				c.send <- errMsg
 				break
 			}
-			okMsg, _ := json.Marshal(Message{
+			okMsg, _ := json.Marshal(dto.Message{
 				Action:  "leave_ok",
 				Payload: json.RawMessage(`{}`),
 			})
 			c.send <- okMsg
 
 		case "chat":
-			var payload ChatPayload
+			var payload dto.ChatPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				c.send <- errMsg("chat_error", "invalid payload")
 				break
@@ -193,11 +175,11 @@ func (c *Client) readPump() {
 				"nickname": c.nickName,
 				"content":  payload.Content,
 			})
-			chatBroadcast, _ := json.Marshal(Message{
+			chatBroadcast, _ := json.Marshal(dto.Message{
 				Action:  "chat",
 				Payload: chatPayload,
 			})
-			c.manager.SendToRoom(payload.RoomID, chatBroadcast)
+			c.manager.SendToRoomExcept(payload.RoomID, c.clientID, chatBroadcast)
 
 		default:
 			c.manager.Broadcast(message)

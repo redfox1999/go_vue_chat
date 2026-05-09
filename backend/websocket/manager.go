@@ -251,6 +251,26 @@ func (m *Manager) SendToRoom(roomID string, message []byte) {
 	}
 }
 
+func (m *Manager) SendToRoomExcept(roomID string, excludeClientID string, message []byte) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	room, ok := m.rooms[roomID]
+	if !ok {
+		return
+	}
+
+	for clientID, client := range room {
+		if clientID == excludeClientID {
+			continue
+		}
+		select {
+		case client.send <- message:
+		default:
+		}
+	}
+}
+
 type UserInfo struct {
 	UserID   int    `json:"user_id"`
 	NickName string `json:"nickname"`

@@ -159,7 +159,19 @@ const sendMessage = () => {
     },
   })
 
+  // 自己发送的消息直接添加到聊天框（服务器不会回传自己的消息）
+  messages.value.push({
+    id: Date.now(),
+    user: myUser.value.name,
+    avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(myUser.value.name)}`,
+    content: inputMessage.value,
+    timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+  })
+
   inputMessage.value = ''
+  
+  // 滚动到底部（使用已有的 scrollToBottom 函数）
+  nextTick(() => scrollToBottom())
 }
 
 const scrollToBottom = () => {

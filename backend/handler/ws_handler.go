@@ -44,21 +44,39 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 解析 token
-	if tokenString != "" {
-		claims, err := config.ParseJWT(tokenString)
-		if err == nil && claims != nil {
-			userId = claims.UserID
-		}
+	if tokenString == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "token is required"})
+		return
+	}
+
+	claims, err := config.ParseJWT(tokenString)
+	if err != nil || claims == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid token"})
+		return
+	}
+
+	userId = claims.UserID
+	if userId <= 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid user ID"})
+		return
 	}
 
 	// 从数据库获取用户昵称
 	nickName := ""
-	if userId > 0 {
-		user, err := h.userRepo.GetByID(r.Context(), userId)
-		if err == nil && user != nil {
-			nickName = user.Nickname
-		}
+	user, err := h.userRepo.GetByID(r.Context(), userId)
+	if err != nil || user == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
+		return
 	}
+	nickName = user.Nickname
 
 	conn, err := websocket.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
