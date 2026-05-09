@@ -242,8 +242,8 @@ export const messageApi = {
     })
   },
 
-  async listByRoom(roomId: number, page: number = 1, pageSize: number = 50): Promise<PageResponse<Message>> {
-    return request<PageResponse<Message>>(`/messages/room/${roomId}`, {
+  async getRoomMessages(roomId: number, page: number = 1, pageSize: number = 50): Promise<PageResponse<Message>> {
+    return request<PageResponse<Message>>(`/chat-rooms/${roomId}/messages`, {
       params: { page, page_size: pageSize }
     })
   },

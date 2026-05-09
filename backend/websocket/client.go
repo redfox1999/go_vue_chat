@@ -1,8 +1,10 @@
 package websocket
 
 import (
+	"backend/models"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,19 +89,16 @@ func (c *Client) readPump() {
 		}
 		c.manager.logger.Info().Str("client_id", c.clientID).Msg("WebSocket message received: " + string(message))
 
-		// 处理 ping 消息，返回 pong 响应
-		if msg.Action == "ping" {
+		switch msg.Action {
+		case "ping":
 			pongMsg := Message{
 				Action:  "pong",
 				Payload: json.RawMessage(`{}`),
 			}
 			pongData, _ := json.Marshal(pongMsg)
 			c.send <- pongData
-			continue
-		}
 
-		// 处理 join 消息，加入指定聊天室
-		if msg.Action == "join" {
+		case "join":
 			var payload JoinPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				errMsg, _ := json.Marshal(Message{
@@ -107,7 +106,7 @@ func (c *Client) readPump() {
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
 				c.send <- errMsg
-				continue
+				break
 			}
 			if err := c.manager.JoinRoom(c.clientID, payload.RoomID, payload.Token); err != nil {
 				errPayload, _ := json.Marshal(map[string]string{"error": err.Error()})
@@ -116,9 +115,8 @@ func (c *Client) readPump() {
 					Payload: errPayload,
 				})
 				c.send <- errMsg
-				continue
+				break
 			}
-			// 广播 user_join 给房间所有人
 			joinPayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
 			joinBroadcast, _ := json.Marshal(Message{
 				Action:  "user_join",
@@ -132,11 +130,8 @@ func (c *Client) readPump() {
 				Payload: okPayload,
 			})
 			c.send <- okMsg
-			continue
-		}
 
-		// 处理 leave 消息，离开当前聊天室
-		if msg.Action == "leave" {
+		case "leave":
 			var payload LeavePayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				errMsg, _ := json.Marshal(Message{
@@ -144,9 +139,8 @@ func (c *Client) readPump() {
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
 				c.send <- errMsg
-				continue
+				break
 			}
-			// 广播 user_leave 给房间所有人（在离开之前，确保能拿到用户信息）
 			leavePayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
 			leaveBroadcast, _ := json.Marshal(Message{
 				Action:  "user_leave",
@@ -161,27 +155,38 @@ func (c *Client) readPump() {
 					Payload: errPayload,
 				})
 				c.send <- errMsg
-				continue
+				break
 			}
 			okMsg, _ := json.Marshal(Message{
 				Action:  "leave_ok",
 				Payload: json.RawMessage(`{}`),
 			})
 			c.send <- okMsg
-			continue
-		}
 
-		// 处理 chat 消息，房间内群发
-		if msg.Action == "chat" {
+		case "chat":
 			var payload ChatPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				c.send <- errMsg("chat_error", "invalid payload")
-				continue
+				break
 			}
 			if c.roomId != payload.RoomID {
 				c.send <- errMsg("chat_error", "not in this room")
-				continue
+				break
 			}
+
+			roomID, _ := strconv.Atoi(payload.RoomID)
+			message := &models.Message{
+				RoomID:   roomID,
+				Sender:   c.userId,
+				Nickname: c.nickName,
+				Notify:   "",
+				Message:  payload.Content,
+				SendTime: time.Now(),
+			}
+			if err := c.manager.SaveMessage(message); err != nil {
+				c.manager.logger.Error().Err(err).Msg("Failed to save message to database")
+			}
+
 			chatPayload, _ := json.Marshal(map[string]any{
 				"room_id":  payload.RoomID,
 				"user_id":  c.userId,
@@ -193,10 +198,10 @@ func (c *Client) readPump() {
 				Payload: chatPayload,
 			})
 			c.manager.SendToRoom(payload.RoomID, chatBroadcast)
-			continue
-		}
 
-		c.manager.Broadcast(message)
+		default:
+			c.manager.Broadcast(message)
+		}
 	}
 }
 

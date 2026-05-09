@@ -74,6 +74,7 @@ export interface Message {
   id: number
   room_id: number
   sender: number
+  nickname: string
   notify?: string
   message: string
   send_time: string

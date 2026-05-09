@@ -39,3 +39,21 @@ type ChatRoomListResponse struct {
 	PageSize   int                `json:"page_size"`
 	TotalPages int                `json:"total_pages"`
 }
+
+type MessageResponse struct {
+	ID       int       `json:"id"`
+	RoomID   int       `json:"room_id"`
+	Sender   int       `json:"sender"`
+	Nickname string    `json:"nickname"`
+	Notify   string    `json:"notify"`
+	Message  string    `json:"message"`
+	SendTime time.Time `json:"send_time"`
+}
+
+type MessageListResponse struct {
+	Data       []MessageResponse `json:"data"`
+	Total      int64             `json:"total"`
+	Page       int               `json:"page"`
+	PageSize   int               `json:"page_size"`
+	TotalPages int               `json:"total_pages"`
+}

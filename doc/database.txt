@@ -28,6 +28,7 @@ messages
     id         主键
     room_id    房间id
     sender     发送人id
+    nickname   昵称
     notify     提醒人列表
     message    消息
     send_time  发送时间

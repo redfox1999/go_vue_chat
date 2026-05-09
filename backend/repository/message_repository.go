@@ -47,7 +47,7 @@ func (r *messageRepository) GetByID(ctx context.Context, id int) (*models.Messag
 func (r *messageRepository) GetByRoomID(ctx context.Context, roomID int, page, pageSize int) ([]models.Message, int64, error) {
 	offset := (page - 1) * pageSize
 	var messages []models.Message
-	err := r.db.SelectContext(ctx, &messages, "SELECT * FROM messages WHERE room_id = ? ORDER BY send_time DESC LIMIT ? OFFSET ?", roomID, pageSize, offset)
+	err := r.db.SelectContext(ctx, &messages, "SELECT * FROM messages WHERE room_id = ? ORDER BY id DESC LIMIT ? OFFSET ?", roomID, pageSize, offset)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Int("room_id", roomID).Msg("Failed to get messages by room ID")
 		return nil, 0, err
@@ -83,8 +83,8 @@ func (r *messageRepository) GetBySender(ctx context.Context, sender int, page, p
 }
 
 func (r *messageRepository) Create(ctx context.Context, message *models.Message) error {
-	query := `INSERT INTO messages (room_id, sender, notify, message, send_time)
-	          VALUES (:room_id, :sender, :notify, :message, :send_time)`
+	query := `INSERT INTO messages (room_id, sender, nickname, notify, message, send_time)
+	          VALUES (:room_id, :sender, :nickname, :notify, :message, :send_time)`
 	result, err := r.db.NamedExecContext(ctx, query, message)
 	if err != nil {
 		r.getLogger(ctx).Error().Err(err).Int("room_id", message.RoomID).Msg("Failed to create message")

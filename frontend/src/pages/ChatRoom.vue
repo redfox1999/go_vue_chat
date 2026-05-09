@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed, watch } from 'vue'
-import { getUser, logout, chatRoomApi, uploadApi, getToken } from '@/sdk/api'
+import { getUser, logout, chatRoomApi, messageApi, uploadApi, getToken } from '@/sdk/api'
 import type { User, ChatRoom, CreateChatRoomRequest } from '@/sdk/types'
 import { useToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
@@ -39,6 +39,8 @@ const channels = ref<ChatRoom[]>([])
 const messages = ref<Message[]>([])
 const inputMessage = ref('')
 const chatContainer = ref<HTMLElement | null>(null)
+const isEnteringRoom = ref(false)
+const isInRoom = ref(false)
 
 // WebSocket 连接
 const getWsUrl = () => {
@@ -51,7 +53,7 @@ const getWsUrl = () => {
   return `${protocol}//${host}/ws`
 }
 
-const { status: wsStatus, connect: connectWs, close: closeWs, send: sendWs, onMessage } = useWebSocket(getWsUrl())
+const { status: wsStatus, connect: connectWs, close: closeWs, send: sendWs, onMessage, onReconnect } = useWebSocket(getWsUrl())
 
 const wsStatusText = computed(() => {
   switch (wsStatus.value) {
@@ -77,6 +79,14 @@ const wsStatusClass = computed(() => {
     default:
       return 'text-gray-500'
   }
+})
+
+const isSendButtonDisabled = computed(() => {
+  const disabled = !isInRoom.value || wsStatus.value !== 'online' || !inputMessage.value.trim()
+  if (disabled) {
+    console.log('[ChatRoom] Send button disabled - isInRoom:', isInRoom.value, 'wsStatus:', wsStatus.value, 'hasInput:', !!inputMessage.value.trim())
+  }
+  return disabled
 })
 
 const newRoomName = ref('')
@@ -158,6 +168,7 @@ const scrollToBottom = () => {
   }
 }
 
+// 进入房间（包含 leave 操作，用于首次进入或切换房间）
 const selectChannel = async (channel: ChatRoom) => {
   // 离开当前房间
   if (currentChannel.value) {
@@ -166,9 +177,17 @@ const selectChannel = async (channel: ChatRoom) => {
       sendWs({ action: 'leave', payload: { room_id: String(prev.id) } })
     }
   }
+  
+  await enterRoom(channel)
+}
 
+// 进入房间核心逻辑（不包含 leave，用于重连后重新进入）
+const enterRoom = async (channel: ChatRoom) => {
+  console.log('[ChatRoom] enterRoom called with:', channel.name)
   currentChannel.value = channel.name
   messages.value = []
+  isEnteringRoom.value = true
+  isInRoom.value = false
 
   // 随机选 3-5 个机器人
   const pickBots = () => {
@@ -205,10 +224,38 @@ const selectChannel = async (channel: ChatRoom) => {
     onlineUsers.value = pickBots()
   }
 
-  setTimeout(() => {
+  // 读取房间历史消息（默认50条）
+  try {
+    const msgResult = await messageApi.getRoomMessages(channel.id, 1, 50)
+    if (msgResult.data && msgResult.data.length > 0) {
+      const historyMessages: Message[] = msgResult.data.map(m => ({
+        id: m.id,
+        user: m.nickname,
+        avatarUrl: `${AVATAR_BASE_URL}${encodeURIComponent(m.nickname)}`,
+        content: m.message,
+        timestamp: new Date(m.send_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      }))
+      // 反转数组，使最早的消息（id 小的）显示在前面
+      messages.value = [...historyMessages].reverse()
+    }
+  } catch (e) {
+    console.error('Failed to load history messages:', e)
+    // 如果加载失败，使用 mock 数据
     messages.value = [...mockMessages]
-    nextTick(() => scrollToBottom())
-  }, 100)
+  }
+
+  // 完成进入房间
+  isEnteringRoom.value = false
+  isInRoom.value = true
+  console.log('[ChatRoom] enterRoom completed - isInRoom:', isInRoom.value, 'wsStatus:', wsStatus.value)
+  showSuccess(`已进入「${channel.name}」聊天室，祝玩的开心！`, 2000)
+  nextTick(() => scrollToBottom())
+}
+
+// 重连后重新进入房间
+const reenterRoom = async (channel: ChatRoom) => {
+  console.log(`[ChatRoom] Re-entering room: ${channel.name}`)
+  await enterRoom(channel)
 }
 
 const handleLogout = () => {
@@ -398,18 +445,38 @@ const handleWsMessage = (event: MessageEvent) => {
 // 监听 WebSocket 状态变化
 watch(wsStatus, (newStatus, oldStatus) => {
   console.log(`[ChatRoom] WebSocket status changed: ${oldStatus} -> ${newStatus}`)
+  console.log(`[ChatRoom] Current isInRoom: ${isInRoom.value}`)
+  // 如果 WebSocket 断开连接，设置未进入房间状态
+  if (newStatus === 'disconnected') {
+    console.log('[ChatRoom] WebSocket disconnected, setting isInRoom to false')
+    isInRoom.value = false
+  }
 })
 
 onMounted(() => {
   console.log('[ChatRoom] onMounted called')
   
-  messages.value = [...mockMessages]
-  setTimeout(scrollToBottom, 100)
   loadChatRooms()
   
   // 设置消息处理回调
   console.log('[ChatRoom] Setting message callback')
   onMessage(handleWsMessage)
+  
+  // 设置重连回调
+  onReconnect(() => {
+    console.log('[ChatRoom] WebSocket reconnected, re-entering room')
+    console.log('[ChatRoom] Current channel:', currentChannel.value)
+    console.log('[ChatRoom] Channels count:', channels.value.length)
+    if (currentChannel.value && channels.value.length > 0) {
+      const currentRoom = channels.value.find(c => c.name === currentChannel.value)
+      console.log('[ChatRoom] Found current room:', currentRoom)
+      if (currentRoom) {
+        // 重连成功后重新进入房间：获取新token、join、读取历史记录
+        reenterRoom(currentRoom)
+        showSuccess('连接已恢复，已重新进入聊天室')
+      }
+    }
+  })
   
   // 连接 WebSocket
   console.log('[ChatRoom] Connecting WebSocket...')
@@ -520,7 +587,9 @@ onMounted(() => {
               <div :class="['text-xs flex items-center gap-1', wsStatusClass]">
                 <div :class="[
                   'w-1.5 h-1.5 rounded-full',
-                  wsStatus === 'connecting' ? 'animate-pulse' : '',
+                  wsStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : '',
+                  wsStatus === 'online' ? 'bg-green-500' : '',
+                  wsStatus === 'disconnected' ? 'bg-red-500' : '',
                 ]"></div>
                 {{ wsStatusText }}
               </div>
@@ -554,7 +623,12 @@ onMounted(() => {
               <CardTitle class="text-base">{{ currentChannel }}</CardTitle>
             </div>
             <div class="flex items-center gap-2">
-              <div :class="['w-2 h-2 rounded-full animate-pulse', wsStatusClass]"></div>
+              <div :class="[
+                'w-2 h-2 rounded-full',
+                wsStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : '',
+                wsStatus === 'online' ? 'bg-green-500' : '',
+                wsStatus === 'disconnected' ? 'bg-red-500' : '',
+              ]"></div>
               <span :class="['text-xs font-medium', wsStatusClass]">{{ wsStatusText }}</span>
               <span class="text-xs text-gray-400">({{ wsStatus }})</span>
             </div>
@@ -566,13 +640,22 @@ onMounted(() => {
         ref="chatContainer"
         class="flex-1 overflow-y-auto p-4 space-y-4"
       >
-        <div
-          v-for="msg in messages"
-          :key="msg.id"
-          :class="[
-            'flex gap-4',
-            msg.user === myUser.name ? 'flex-row-reverse' : ''
-          ]"
+        <!-- Loading 状态 -->
+        <div v-if="isEnteringRoom" class="flex flex-col items-center justify-center py-12">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-500 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke-linecap="round"/>
+          </svg>
+          <span class="mt-4 text-sm text-muted-foreground">正在进入房间...</span>
+        </div>
+        
+        <div v-else>
+          <div
+            v-for="msg in messages"
+            :key="msg.id"
+            :class="[
+              'flex gap-4',
+              msg.user === myUser.name ? 'flex-row-reverse' : ''
+            ]"
         >
           <img 
             :src="msg.avatarUrl" 
@@ -596,6 +679,7 @@ onMounted(() => {
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       <Card class="border-none bg-muted border-t border-border">
@@ -607,7 +691,7 @@ onMounted(() => {
               placeholder="发送消息到 {{ currentChannel }}..."
               class="flex-1 bg-background"
             />
-            <Button @click="sendMessage">
+            <Button @click="sendMessage" :disabled="isSendButtonDisabled">
               发送
             </Button>
           </div>

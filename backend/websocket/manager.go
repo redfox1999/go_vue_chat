@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"backend/models"
 	"backend/repository"
 
 	"github.com/gorilla/websocket"
@@ -51,9 +52,10 @@ type Manager struct {
 	logger       zerolog.Logger
 	userRepo     repository.UserRepository
 	chatRoomRepo repository.ChatRoomRepository
+	messageRepo  repository.MessageRepository
 }
 
-func NewManager(logger zerolog.Logger, userRepo repository.UserRepository, chatRoomRepo repository.ChatRoomRepository) *Manager {
+func NewManager(logger zerolog.Logger, userRepo repository.UserRepository, chatRoomRepo repository.ChatRoomRepository, messageRepo repository.MessageRepository) *Manager {
 	m := &Manager{
 		clients:      make(map[string]*Client),
 		rooms:        make(map[string]map[string]*Client),
@@ -64,6 +66,7 @@ func NewManager(logger zerolog.Logger, userRepo repository.UserRepository, chatR
 		logger:       logger,
 		userRepo:     userRepo,
 		chatRoomRepo: chatRoomRepo,
+		messageRepo:  messageRepo,
 	}
 
 	// 从数据库加载聊天室
@@ -395,4 +398,12 @@ func (m *Manager) LeaveRoom(clientID string, roomID string) error {
 
 	client.roomId = ""
 	return nil
+}
+
+func (m *Manager) SaveMessage(message *models.Message) error {
+	if m.messageRepo == nil {
+		return fmt.Errorf("message repository not initialized")
+	}
+	ctx := context.Background()
+	return m.messageRepo.Create(ctx, message)
 }

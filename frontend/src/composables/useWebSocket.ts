@@ -13,6 +13,7 @@ export function useWebSocket(url: string) {
   const reconnectAttempts = ref(0)
   const reconnectInterval = ref(1000)
   const maxReconnectInterval = 60000
+  const isReconnected = ref(false)
   
   let ws: WebSocket | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -20,6 +21,9 @@ export function useWebSocket(url: string) {
   let pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null
   let stateCheckTimer: ReturnType<typeof setInterval> | null = null
   let messageCallback: ((event: MessageEvent) => void) | null = null
+  let reconnectCallback: (() => void) | null = null
+  let hasConnectedOnce = false
+  let isReconnecting = false
 
   const connect = () => {
     // 清除之前的定时器
@@ -29,6 +33,9 @@ export function useWebSocket(url: string) {
     }
     
     if (status.value === 'connecting') return
+    
+    // 记录是否是重连（已经连接过一次且当前是断开状态）
+    isReconnecting = hasConnectedOnce && status.value === 'disconnected'
     
     status.value = 'connecting'
     reconnectAttempts.value = 0
@@ -45,6 +52,18 @@ export function useWebSocket(url: string) {
         reconnectAttempts.value = 0
         startPing()
         startStateCheck()
+        
+        // 如果是重连（已经连接过一次且这次是从断开状态重新连接）
+        if (isReconnecting && reconnectCallback) {
+          console.log('WebSocket reconnected, calling callback')
+          isReconnected.value = true
+          reconnectCallback()
+        }
+        
+        // 标记已连接过一次
+        hasConnectedOnce = true
+        // 重置重连标志
+        isReconnecting = false
       }
       
       ws.onclose = (event) => {
@@ -235,6 +254,10 @@ export function useWebSocket(url: string) {
     messageCallback = callback
   }
 
+  const onReconnect = (callback: () => void) => {
+    reconnectCallback = callback
+  }
+
   onUnmounted(() => {
     close()
   })
@@ -249,6 +272,8 @@ export function useWebSocket(url: string) {
     close,
     send,
     onMessage,
-    reconnectAttempts
+    onReconnect,
+    reconnectAttempts,
+    isReconnected
   }
 }

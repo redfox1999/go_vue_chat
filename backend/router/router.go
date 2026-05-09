@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHandler, chatRoomHandler *handler.ChatRoomHandler, logger zerolog.Logger) *chi.Mux {
+func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHandler, chatRoomHandler *handler.ChatRoomHandler, messageHandler *handler.MessageHandler, logger zerolog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +50,7 @@ func NewRouter(userHandler *handler.UserHandler, wsHandler *handler.WebSocketHan
 			r.Get("/owner/{owner_id}", chatRoomHandler.GetChatRoomsByOwner)
 			r.Get("/{id}/token", wsHandler.GetRoomToken)
 			r.Get("/{id}/users", wsHandler.GetRoomUsers)
+			r.Get("/{id}/messages", messageHandler.GetRoomMessages)
 		})
 
 		r.Get("/ws/clients", wsHandler.GetClientCount)

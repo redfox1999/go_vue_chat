@@ -103,6 +103,7 @@ func createTables() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		room_id INTEGER,
 		sender INTEGER,
+		nickname TEXT,
 		notify TEXT,
 		message TEXT NOT NULL,
 		send_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
