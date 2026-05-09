@@ -7,36 +7,45 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function loadConfig() {
+  const configPath = path.join(__dirname, 'config.json');
+  return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+}
+
+const botIds = new Set();
+
 class ChatBot {
-  constructor() {
-    this.config = this.loadConfig();
+  constructor(username, password, config) {
+    this.config = config;
+    this.username = username;
+    this.password = password;
     this.token = null;
+    this.userId = null;
     this.currentRoom = null;
     this.ws = null;
     this.isRunning = false;
     this.messageQueue = [];
     this.lastMessageTime = 0;
+    this.lastReplyTime = 0;
+    this.replyInRoom = 0;
+    this.maxReplies = 5;
+    this.MIN_REPLY_INTERVAL = 10000; // 两次回复至少间隔10秒
     this.roomStartTime = 0;
-  }
-
-  loadConfig() {
-    const configPath = path.join(__dirname, 'config.json');
-    const configData = fs.readFileSync(configPath, 'utf-8');
-    return JSON.parse(configData);
   }
 
   log(message, level = 'info') {
     const timestamp = new Date().toISOString();
     const levels = { info: 'INFO', warn: 'WARN', error: 'ERROR' };
-    console.log(`[${timestamp}] [${levels[level] || 'INFO'}] ${message}`);
+    const prefix = this.username ? `[${this.username}]` : '';
+    console.log(`${prefix}[${timestamp}] [${levels[level] || 'INFO'}] ${message}`);
   }
 
   async login() {
     try {
       this.log('正在登录...');
       const response = await axios.post(`${this.config.apiBaseUrl}/users/login`, {
-        username: this.config.credentials.username,
-        password: this.config.credentials.password
+        username: this.username,
+        password: this.password
       });
       
       if (!response.data || !response.data.token) {
@@ -45,7 +54,9 @@ class ChatBot {
       }
       
       this.token = response.data.token;
-      this.log(`登录成功，用户: ${this.config.credentials.username}`);
+      this.userId = response.data.user?.id;
+      if (this.userId) botIds.add(this.userId);
+      this.log(`登录成功，ID=${this.userId}`);
       return true;
     } catch (error) {
       const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message;
@@ -71,7 +82,6 @@ class ChatBot {
 
   async getRoomToken(roomId) {
     try {
-      this.log(`获取房间 ${roomId} 的 token...`);
       const response = await axios.get(`${this.config.apiBaseUrl}/chat-rooms/${roomId}/token`, {
         headers: { Authorization: `Bearer ${this.token}` }
       });
@@ -79,7 +89,6 @@ class ChatBot {
         this.log(`获取房间 token 失败: 响应数据格式错误`, 'error');
         return null;
       }
-      this.log(`获取房间 ${roomId} 的 token 成功`);
       return response.data.token;
     } catch (error) {
       const errorMsg = error.response?.data?.error || error.response?.statusText || error.message;
@@ -91,9 +100,7 @@ class ChatBot {
   connectWebSocket(roomId, token) {
     return new Promise((resolve, reject) => {
       this.log(`正在连接 WebSocket 到房间 ${roomId}...`);
-      // 使用用户的 JWT token 来连接，以便后端能识别用户身份
       const wsUrl = `${this.config.wsBaseUrl}?token=${encodeURIComponent(this.token)}`;
-      this.log(`WebSocket URL: ${wsUrl}`);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.on('open', () => {
@@ -114,7 +121,6 @@ class ChatBot {
       this.ws.on('message', (data) => {
         try {
           const messageStr = data.toString().trim();
-          // 处理可能包含多条消息的情况
           const messages = messageStr.split('\n').filter(m => m.trim());
           for (const msg of messages) {
             if (msg.trim()) {
@@ -123,7 +129,6 @@ class ChatBot {
           }
         } catch (error) {
           this.log(`消息解析失败: ${error.message}`, 'warn');
-          this.log(`原始消息: ${data.toString()}`, 'warn');
         }
       });
     });
@@ -136,6 +141,8 @@ class ChatBot {
       payload: { room_id: String(roomId), token }
     }));
     this.currentRoom = roomId;
+    this.replyInRoom = 0;
+    this.lastReplyTime = 0;
     this.roomStartTime = Date.now();
   }
 
@@ -151,53 +158,44 @@ class ChatBot {
   }
 
   handleMessage(data) {
-    // 显示完整的消息内容用于调试
-    this.log(`收到消息: ${JSON.stringify(data)}`);
-    
-    if (!data.action) {
-      this.log(`无效消息: 缺少 action 字段`, 'warn');
-      return;
-    }
-    
-    this.log(`消息 action: ${data.action}`);
+    if (!data.action) return;
     
     if (data.action === 'chat') {
       const payload = data.payload;
-      if (!payload) {
-        this.log(`聊天消息缺少 payload`, 'warn');
-        return;
-      }
-      // 后端发送的字段名是 user_id 和 content
-      const userId = payload.user_id || payload.user || '未知ID';
-      const nickname = payload.nickname || `用户${userId}`;
-      const message = payload.content || payload.message || '空消息';
-      this.log(`收到聊天消息: 用户ID=${userId}, 昵称=${nickname}, 内容=${message}`);
-      
-      // 随机决定是否回复（回复1-2条）
-      if (message && message !== '空消息') {
-        const shouldReply = Math.random() < 0.9; // 70%概率回复
+      if (!payload) return;
+      // 忽略所有机器人发的消息（包括自己）
+      if (payload.user_id && botIds.has(Number(payload.user_id))) return;
+
+      const message = payload.content || '';
+      if (message) {
+        // 冷却检查 + 房间回复次数上限
+        const now = Date.now();
+        if (this.replyInRoom >= this.maxReplies) {
+          this.log(`回复已达上限 (${this.maxReplies})，不再回复`);
+          return;
+        }
+        if (now - this.lastReplyTime < this.MIN_REPLY_INTERVAL) {
+          this.log(`冷却中 (距上次 ${Math.round((now - this.lastReplyTime) / 1000)}秒)，跳过回复`);
+          return;
+        }
+        const shouldReply = Math.random() < 0.7;
         if (shouldReply) {
           this.scheduleReply();
-        } else {
-          this.log('收到消息，本次不回复');
         }
       }
-    } else if (data.action === 'online_users') {
-      const payload = data.payload;
-      const userCount = payload?.users?.length || 0;
-      this.log(`在线用户更新: ${userCount} 人`);
-    } else if (data.action === 'join_ok') {
-      this.log(`加入房间成功: ${data.payload?.room_id}`);
-    } else {
-      this.log(`未知消息类型: ${data.action}`, 'warn');
     }
   }
 
   scheduleReply() {
     const delay = Math.random() * (this.config.behavior.replyDelay.max - this.config.behavior.replyDelay.min) + this.config.behavior.replyDelay.min;
-    const replyCount = Math.floor(Math.random() * 2) + 1; // 回复1-2条
-    this.log(`计划在 ${Math.round(delay / 1000)} 秒后回复 ${replyCount} 条消息`);
-    
+    const replyCount = Math.min(
+      Math.floor(Math.random() * 2) + 1,
+      this.maxReplies - this.replyInRoom
+    );
+    if (replyCount <= 0) return;
+
+    this.log(`计划在 ${Math.round(delay / 1000)}s 后回复 ${replyCount} 条`);
+
     setTimeout(() => {
       if (!this.isRunning || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
       
@@ -208,16 +206,16 @@ class ChatBot {
         setTimeout(() => {
           if (this.isRunning && this.ws && this.ws.readyState === WebSocket.OPEN) {
             const message = messages[Math.floor(Math.random() * messages.length)];
-            this.sendMessage(message);
+            this.sendMessage(message, '回复');
           }
         }, messageDelay);
         
-        messageDelay += 1500; // 每条消息间隔1.5秒
+        messageDelay += 1500;
       }
     }, delay);
   }
 
-  sendMessage(message) {
+  sendMessage(message, reason = '') {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         action: 'chat',
@@ -226,33 +224,36 @@ class ChatBot {
           content: message
         }
       }));
-      this.log(`发送消息: ${message}`);
+      this.replyInRoom++;
+      this.lastReplyTime = Date.now();
       this.lastMessageTime = Date.now();
+      const reasonStr = reason ? ` [${reason}]` : '';
+      this.log(`发送消息${reasonStr}: ${message} (${this.replyInRoom}/${this.maxReplies})`);
     }
   }
 
   async sendInitialMessages() {
-    const count = Math.floor(Math.random() * 2) + 1; // 1-2条消息
-    this.log(`进入房间后发送 ${count} 条初始消息`);
+    const count = Math.floor(Math.random() * 2) + 1;
+    this.log(`发送 ${count} 条初始消息`);
     
     for (let i = 0; i < count; i++) {
       if (!this.isRunning || !this.ws || this.ws.readyState !== WebSocket.OPEN) break;
       
       const messages = this.config.behavior.randomMessages;
       const message = messages[Math.floor(Math.random() * messages.length)];
-      this.sendMessage(message);
+      this.sendMessage(message, '进场');
       
       if (i < count - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 消息间隔2秒
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
-    this.log('初始消息发送完毕，等待其他用户消息...');
+    this.log('初始消息发送完毕');
   }
 
   async stayInRoom() {
     const stayTime = Math.random() * (this.config.behavior.maxStayTime - this.config.behavior.minStayTime) + this.config.behavior.minStayTime;
-    this.log(`将在房间 ${this.currentRoom} 停留 ${Math.round(stayTime)} 分钟`);
+    this.log(`将在房间停留 ${Math.round(stayTime)} 分钟`);
     
     return new Promise(resolve => {
       setTimeout(resolve, stayTime * 60 * 1000);
@@ -280,7 +281,7 @@ class ChatBot {
 
   async run() {
     this.isRunning = true;
-    this.log('聊天室机器人启动');
+    this.log('机器人启动');
     
     if (!await this.login()) {
       this.log('登录失败，退出', 'error');
@@ -299,7 +300,7 @@ class ChatBot {
       this.log(`选择房间: ${room.name} (ID: ${room.id})`);
 
       if (await this.enterRoom(room)) {
-        await this.sendInitialMessages(); // 发送1-2条初始消息后停止
+        await this.sendInitialMessages();
         await this.stayInRoom();
         
         this.leaveRoom();
@@ -318,25 +319,34 @@ class ChatBot {
   }
 
   stop() {
-    this.log('正在停止机器人...');
+    this.log('正在停止...');
     this.isRunning = false;
     this.leaveRoom();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    this.log('机器人已停止');
   }
 }
 
-const bot = new ChatBot();
+// ──── 启动多个机器人 ────
+const config = loadConfig();
+const botList = (config.bots || []).map(
+  botCfg => new ChatBot(botCfg.username, botCfg.password, config)
+);
+
+if (botList.length === 0) {
+  console.error('config.json 中没有配置机器人 (bots 字段为空)');
+  process.exit(1);
+}
+
+console.log(`共启动 ${botList.length} 个机器人: ${botList.map(b => b.username).join(', ')}`);
 
 process.on('SIGINT', () => {
-  bot.stop();
+  botList.forEach(bot => bot.stop());
   process.exit(0);
 });
 
-bot.run().catch(error => {
-  bot.log(`机器人运行出错: ${error.message}`, 'error');
-  process.exit(1);
+Promise.allSettled(botList.map(bot => bot.run())).then(() => {
+  console.log('所有机器人已退出');
 });

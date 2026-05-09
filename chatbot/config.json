@@ -1,6 +1,9 @@
 {
   "apiBaseUrl": "http://localhost:8080/api/v1",
   "wsBaseUrl": "ws://localhost:8080/ws",
+  "bots": [{"username": "aibot", "password": "123456"} ,
+           {"username": "aibot2", "password": "123456"},
+          {"username": "aibot3", "password": "123456"}],
   "credentials": {
     "username": "aibot",
     "password": "123456"
@@ -16,7 +19,7 @@
       "不错不错",
       "继续聊天吧",
       "很有意思",
-      "赞同"
+      "有人想一起讨论技术吗？"
     ],
     "replyMessages": [
       "你说得对",

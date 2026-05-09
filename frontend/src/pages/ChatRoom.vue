@@ -260,7 +260,7 @@ const enterRoom = async (channel: ChatRoom) => {
   isEnteringRoom.value = false
   isInRoom.value = true
   console.log('[ChatRoom] enterRoom completed - isInRoom:', isInRoom.value, 'wsStatus:', wsStatus.value)
-  showSuccess(`已进入「${channel.name}」聊天室，祝玩的开心！`, 2000)
+  showSuccess(`您已进入「${channel.name}」聊天室，祝玩的开心！`, 2000)
   nextTick(() => scrollToBottom())
 }
 
