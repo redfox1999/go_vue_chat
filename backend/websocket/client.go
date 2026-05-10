@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,19 @@ const (
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 4096
 )
+
+type Client struct {
+	conn     *websocket.Conn
+	manager  *Manager
+	send     chan []byte
+	clientID string
+
+	roomId   string
+	userId   int
+	nickName string
+
+	closeOnce sync.Once // 确保关闭逻辑只执行一次
+}
 
 func errMsg(action, msg string) []byte {
 	p, _ := json.Marshal(map[string]string{"error": msg})

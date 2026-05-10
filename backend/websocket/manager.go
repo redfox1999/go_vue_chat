@@ -23,18 +23,7 @@ var Upgrader = websocket.Upgrader{
 	},
 }
 
-type Client struct {
-	conn     *websocket.Conn
-	manager  *Manager
-	send     chan []byte
-	clientID string
 
-	roomId   string
-	userId   int
-	nickName string
-
-	closeOnce sync.Once // 确保关闭逻辑只执行一次
-}
 
 type RoomToken struct {
 	OldToken string
