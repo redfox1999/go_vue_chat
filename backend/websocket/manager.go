@@ -29,10 +29,11 @@ type Client struct {
 	send     chan []byte
 	clientID string
 
-	isAuthenticated bool
-	roomId          string
-	userId          int
-	nickName        string
+	roomId   string
+	userId   int
+	nickName string
+
+	closeOnce sync.Once // 确保关闭逻辑只执行一次
 }
 
 type RoomToken struct {
@@ -107,7 +108,6 @@ func (m *Manager) Run() {
 			var userID int
 			var nickName string
 			if _, ok := m.clients[client.clientID]; ok {
-				close(client.send)
 				delete(m.clients, client.clientID)
 				if client.roomId != "" && m.rooms[client.roomId] != nil {
 					roomID = client.roomId
@@ -147,20 +147,7 @@ func (m *Manager) Run() {
 			m.mu.RUnlock()
 
 			for _, client := range clientsCopy {
-				select {
-				case client.send <- message:
-				default:
-					m.mu.Lock()
-					close(client.send)
-					delete(m.clients, client.clientID)
-					if client.roomId != "" && m.rooms[client.roomId] != nil {
-						delete(m.rooms[client.roomId], client.clientID)
-						if len(m.rooms[client.roomId]) == 0 {
-							delete(m.rooms, client.roomId)
-						}
-					}
-					m.mu.Unlock()
-				}
+				client.Send(message)
 			}
 		}
 	}
@@ -244,10 +231,7 @@ func (m *Manager) SendToRoom(roomID string, message []byte) {
 	}
 
 	for _, client := range room {
-		select {
-		case client.send <- message:
-		default:
-		}
+		client.Send(message)
 	}
 }
 
@@ -264,10 +248,7 @@ func (m *Manager) SendToRoomExcept(roomID string, excludeClientID string, messag
 		if clientID == excludeClientID {
 			continue
 		}
-		select {
-		case client.send <- message:
-		default:
-		}
+		client.Send(message)
 	}
 }
 
@@ -288,9 +269,6 @@ func (m *Manager) GetRoomUsers(roomID string) []UserInfo {
 	users := make([]UserInfo, 0, len(room))
 	for _, client := range room {
 		nickName := client.nickName
-		if nickName == "" {
-			nickName = m.GetUserNickname(client.userId)
-		}
 		users = append(users, UserInfo{
 			UserID:   client.userId,
 			NickName: nickName,

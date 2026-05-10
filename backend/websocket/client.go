@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	writeWait      = 10 * time.Second
+	writeWait      = 10 * time.Second // 写入超时时间
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 4096
@@ -29,21 +29,39 @@ func NewClient(conn *websocket.Conn, manager *Manager, userId int, nickName stri
 	return &Client{
 		conn:     conn,
 		manager:  manager,
-		send:     make(chan []byte, maxMessageSize),
+		send:     make(chan []byte, 16),
 		clientID: uuid.New().String(),
 
 		// 业务逻辑
-		isAuthenticated: false,
-		roomId:          "",
-		userId:          userId,
-		nickName:        nickName,
+		roomId:   "",
+		userId:   userId,
+		nickName: nickName,
+	}
+}
+
+func (c *Client) Close() {
+	c.closeOnce.Do(func() {
+		c.manager.unregister <- c
+		close(c.send)
+		c.conn.Close()
+	})
+}
+
+func (c *Client) Send(message []byte) {
+	select {
+	case c.send <- message:
+		// 正常发送
+	default:
+		// 如果 16 个位置都占满了，说明该客户端网络极差，直接踢掉
+		c.manager.logger.Warn().Str("client_id", c.clientID).Msg("Client send buffer full, dropping")
+		c.Close()
 	}
 }
 
 func (c *Client) readPump() {
 	defer func() {
 		c.manager.unregister <- c
-		c.conn.Close()
+		c.Close()
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -78,7 +96,7 @@ func (c *Client) readPump() {
 				Payload: json.RawMessage(`{}`),
 			}
 			pongData, _ := json.Marshal(pongMsg)
-			c.send <- pongData
+			c.Send(pongData)
 
 		case "join":
 			var payload dto.JoinPayload
@@ -87,7 +105,7 @@ func (c *Client) readPump() {
 					Action:  "join_error",
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
-				c.send <- errMsg
+				c.Send(errMsg)
 				break
 			}
 			if err := c.manager.JoinRoom(c.clientID, payload.RoomID, payload.Token); err != nil {
@@ -96,7 +114,7 @@ func (c *Client) readPump() {
 					Action:  "join_error",
 					Payload: errPayload,
 				})
-				c.send <- errMsg
+				c.Send(errMsg)
 				break
 			}
 			joinPayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
@@ -111,7 +129,7 @@ func (c *Client) readPump() {
 				Action:  "join_ok",
 				Payload: okPayload,
 			})
-			c.send <- okMsg
+			c.Send(okMsg)
 
 		case "leave":
 			var payload dto.LeavePayload
@@ -120,7 +138,7 @@ func (c *Client) readPump() {
 					Action:  "leave_error",
 					Payload: json.RawMessage(`{"error":"invalid payload"}`),
 				})
-				c.send <- errMsg
+				c.Send(errMsg)
 				break
 			}
 			leavePayload := fmt.Sprintf(`{"room_id":"%s","user_id":%d,"nickname":"%s"}`, payload.RoomID, c.userId, c.nickName)
@@ -136,23 +154,23 @@ func (c *Client) readPump() {
 					Action:  "leave_error",
 					Payload: errPayload,
 				})
-				c.send <- errMsg
+				c.Send(errMsg)
 				break
 			}
 			okMsg, _ := json.Marshal(dto.Message{
 				Action:  "leave_ok",
 				Payload: json.RawMessage(`{}`),
 			})
-			c.send <- okMsg
+			c.Send(okMsg)
 
 		case "chat":
 			var payload dto.ChatPayload
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-				c.send <- errMsg("chat_error", "invalid payload")
+				c.Send(errMsg("chat_error", "invalid payload"))
 				break
 			}
 			if c.roomId != payload.RoomID {
-				c.send <- errMsg("chat_error", "not in this room")
+				c.Send(errMsg("chat_error", "not in this room"))
 				break
 			}
 
@@ -191,7 +209,6 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
 	}()
 
 	for {
@@ -203,19 +220,9 @@ func (c *Client) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			err := c.conn.WriteMessage(websocket.TextMessage, message)
+
 			if err != nil {
-				return
-			}
-			w.Write(message)
-
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
 				return
 			}
 
